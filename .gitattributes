@@ -1,0 +1,10 @@
+# 统一换行符：仓库内一律 LF，避免 Windows/Linux 混合协作时产生整文件 diff，
+# 也避免 shell 脚本被 CRLF 破坏（Windows 上 git 默认 core.autocrlf 会转换）。
+* text=auto eol=lf
+
+# Windows 批处理必须保持 CRLF（本仓库暂无，保留这条与组织其他仓库一致）
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+# 生成到业务方工作空间后要能直接 ./init-workspace.sh 执行
+*.sh     text eol=lf

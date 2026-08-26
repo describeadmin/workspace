@@ -1,0 +1,5 @@
+# dev-env skill 的每 worktree 运行状态（pid 文件、后台进程日志）
+.claude/skills/dev-env/.worktree/
+
+# 业务方生成出的 workspace.env 不应该出现在本仓库里（那是生成物，不是模板）
+.claude/workspace.env

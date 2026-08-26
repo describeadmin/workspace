@@ -1,0 +1,44 @@
+# 示例场景，格式定义见 ../SKILL.md。
+#
+# 选择器对照 @describeadmin/system-ui 的 frontend/packages/effects/system-ui/src/views/dept/index.vue
+# 真实源码核实（2026-08-26）——这个页面随每个 describeadmin 业务项目分发，不是某个
+# 特定项目专属，可以在任何生成出来的工作空间里直接跑这个场景。
+#
+# ✅ 核心流程（steps + 两条 assertions + cleanup）已用真实浏览器跑通一次，见框架团队
+# docs 仓 PROGRESS.md 2026-08-26 记录。login_as 那条 precondition 当时因为浏览器已带
+# 登录态被跳过，尚未覆盖——下次执行时优先补这一段。
+
+scenario: 新增部门后在部门列表中可见
+description: >
+  系统管理 - 部门管理的最基础路径：新增一条部门记录，验证页面表格与数据库都能看到它。
+  同时是 UI 断言 + DB 断言配合使用的示例（不能只凭页面看起来正常就下结论）。
+
+preconditions:
+  - login_as: admin
+
+steps:
+  - action: navigate
+    target: /system/dept
+  - action: click
+    selector: '[data-testid="dept-add-btn"]'
+  - action: fill
+    selector: '[data-testid="dept-dept-name-input"]'
+    value: "测试部门-自动化"
+  - action: click
+    selector: '[data-testid="dept-submit-btn"]'
+
+assertions:
+  - type: ui
+    selector: '[data-testid="dept-table"]'
+    expect: contains_text("测试部门-自动化")
+  - type: db
+    query: "SELECT COUNT(*) FROM sys_dept WHERE dept_name = '测试部门-自动化' AND deleted = 0"
+    expect: equals(1)
+
+cleanup:
+  - query: "DELETE FROM sys_dept WHERE dept_name = '测试部门-自动化'"
+
+evidence:
+  - screenshot: after_each_step
+  - console_log: on_error
+  - network_log: on_error
