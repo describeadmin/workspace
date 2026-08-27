@@ -87,8 +87,10 @@ evidence:
    `fill [data-testid="login-username-input"]`、
    `fill [data-testid="login-password-input"]`、
    `click [data-testid="login-submit-btn"]`（这三个 `data-testid` 是
-   `@describeadmin/create-app` 生成的登录页共用组件自带的，跨项目稳定；密码用
-   `archetype` 生成工程的默认账号 `admin`/`admin123`，业务方改过密码的话以实际为准）。
+   `@describeadmin/create-app` 生成的登录页共用组件自带的，跨项目稳定；账号是
+   `admin`，口令由 dev-seed 随机生成，取后端项目根 `.passwd` 文件的内容，
+   业务方改过密码的话以实际为准。首次登录若落到「强制修改密码」页，说明该账号
+   还没改过初始密码）。
 
 4. **逐条执行 steps**：
    - `navigate` → `mcp__chrome-devtools__navigate_page`

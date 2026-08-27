@@ -142,7 +142,7 @@ echo "  1. 起数据库：cd $NAME && .claude/skills/dev-env/dev.sh dev up"
 echo "     （首次运行会自动建共享 MySQL/Redis 容器 + 后台起后端/前端）"
 echo "  2. 或者手工分别起：cd $BACKEND_DIR && mvn spring-boot:run -Dspring-boot.run.profiles=local"
 echo "               cd $FRONTEND_DIR && pnpm install && pnpm dev"
-echo "  3. 默认账号 admin / admin123（仅供本地开发）"
+echo "  3. 管理员账号 admin，口令随机生成——见后端启动日志或 $BACKEND_DIR/.passwd"
 echo
 echo "把 $NAME 打开交给 AI Agent（读 CLAUDE.md 即可开工），或用 dev-env / visual-test"
 echo "两个 skill 起环境、跑自动化测试——细节见 .claude/skills/*/SKILL.md。"
