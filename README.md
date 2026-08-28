@@ -27,7 +27,8 @@ workspace/                  （本仓库）          <workspace-name>/         �
     └── skills/
         ├── dev-env/
         ├── visual-test/
-        └── describe/
+        ├── describe/
+        └── codegen/
 ```
 
 改这个仓库时按这个心智模型想："我现在改的东西，最终会原样出现在业务方的工作空间里"。
@@ -57,6 +58,11 @@ workspace/                  （本仓库）          <workspace-name>/         �
 - `describe` 是编排 skill：`describe.sh` 只做「双 worktree 增删 + 拷 `.claude/` + 合并回 base」
   这类机械活，判断类的事全在 `describe/SKILL.md`。它把「工作空间根不是仓库、里面是两个独立
   子仓」这件事按「`init-workspace.sh` 的 worktree 版」处理——见 `describe.sh` 头部注释
+- `codegen` skill **没有配套脚本**：生成器是外部 jar，"下载 + 校验 + 缓存到
+  `~/.describeadmin/codegen/<版本>/` + `java -jar`" 这套步骤直接写在 `codegen/SKILL.md` 里
+  交给 AI 执行。缓存是 per-user、跨项目/worktree 共用的，刻意不放进工作空间。
+  版本经 `workspace.env` 的 `CODEGEN_VERSION` 可钉，默认取 GitHub 最新 Release。
+  codegen 走自己的版本线，与框架版本号不对齐是正常的
 - `init-workspace.sh` 的 archetype 版本查询依赖 Maven Central 的
   `maven-metadata.xml` 是最新的——这与 `CLAUDE.md`（框架团队那份）的"版本核查纪律"
   是同一原则

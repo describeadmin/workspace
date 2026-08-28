@@ -57,9 +57,9 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 `data-testid` 不是装饰性约定——`visual-test` skill（见第 4 节）靠它定位页面元素，
 没打的交互元素 AI 没法自动化测试。
 
-## 4. 三个 Claude Code Skill
+## 4. 四个 Claude Code Skill
 
-`.claude/skills/` 下有三个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
+`.claude/skills/` 下有四个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
 你也可以直接要求"用 dev-env 起一下环境"这样触发：
 
 - **`dev-env`**：一条命令拉起/查看/停止本地开发环境（后端 + 前端 + 共享 MySQL/Redis），
@@ -73,6 +73,10 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
   确认后自主实现、跑完整测试、动了前端就跑可视化测试，最后停在"待合并"并产出报告。
   你验证无误说一句"合并 `<slug>`"，它再把两个仓的分支合并回去并清理 worktree。
   细节见 `.claude/skills/describe/SKILL.md`。
+- **`codegen`**：写一份 YAML spec，生成一个业务模块的薄代码（后端四件套 + 建表/菜单 SQL +
+  前端页面 + API 封装 + 验收用例）。它管生成器 jar 从 GitHub Release 的下载与缓存
+  （`~/.describeadmin/codegen/<版本>/`）、spec 校验要点、以及生成后必须做的 SQL 登记。
+  见 `.claude/skills/codegen/SKILL.md`。新增模块走它，不要手写——见第 6 节。
 
 ## 5. 你作为 API 消费者需要知道的一个坑
 
@@ -88,9 +92,11 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 ## 6. 新增业务模块：用生成器，不要手写
 
 写一份 YAML spec，跑生成器，一次拿到后端四件套（Entity/Mapper/Service/Controller）+
-建表 SQL + 菜单 SQL + 前端页面 + API 封装。生成的 SQL 记得登记进
-`<name>-server` 的 `spring.sql.init`，否则重启后表不会建。具体命令与 spec 格式，
-参见框架文档站的生成器一节（不在本文件重复）。
+建表 SQL + 菜单 SQL + 前端页面 + API 封装。**用 `codegen` skill**（第 4 节）——它管
+生成器 jar 的下载缓存、spec 校验要点、以及生成后必须做的 SQL 登记与两个隐坑
+（下划线模块名导致的权限点 403、别自写 `list` 重载）。spec 格式见框架文档站的生成器一节。
+生成的 SQL 不登记进 `<name>-server` 的 `spring.sql.init`，重启后表不会建、菜单不出现，
+且报错不指向这里。
 
 ## 7. 不在本文件里的内容
 

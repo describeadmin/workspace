@@ -20,7 +20,7 @@
 #   ├── CLAUDE.md                业务方视角的约定说明
 #   ├── .claude/
 #   │   ├── workspace.env         dev-env skill 读取的目录名/项目名配置
-#   │   └── skills/                dev-env、visual-test、describe 三个 Claude Code skill
+#   │   └── skills/                dev-env、visual-test、describe、codegen 四个 Claude Code skill
 #   ├── <workspace-name>-server/   后端，describeadmin-archetype 生成 + git init
 #   └── <workspace-name>-web/       前端，@describeadmin/create-app 生成 + git init
 #
@@ -150,6 +150,10 @@ PROJECT_NAME=$NAME
 # 本地开发用的 MySQL 镜像。默认 mysql:5.7（对齐框架的兼容基线）。
 # 你的线上库是 8.x 就取消下一行注释，让本地环境对齐线上：
 # DEV_MYSQL_IMAGE=mysql:8.0
+
+# codegen 生成器的版本。留空＝codegen skill 每次取 GitHub 上最新的 Release。
+# 想钉版本（比如生成的代码与当前框架版本对不上、编译不过时）取消下一行注释：
+# CODEGEN_VERSION=0.1.1
 EOF
 
 # 前端代理目标如果不是默认值，顺手写进 .env，省得手动改
@@ -169,4 +173,4 @@ echo "  3. 管理员账号 admin，口令随机生成——见后端启动日志
 echo
 echo "两个子项目已各自 git init + 首次提交（describe skill 的 worktree 能力以此为前提）。"
 echo "把 $NAME 打开交给 AI Agent（读 CLAUDE.md 即可开工）：直接描述需求走 describe skill 全流程，"
-echo "或用 dev-env / visual-test 单独起环境、跑自动化测试——细节见 .claude/skills/*/SKILL.md。"
+echo "或用 codegen 生成业务模块、dev-env / visual-test 单独起环境跑测试——细节见 .claude/skills/*/SKILL.md。"
