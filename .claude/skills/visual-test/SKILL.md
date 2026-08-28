@@ -130,6 +130,20 @@ evidence:
 9. **如实汇报**：不要因为"页面看起来正常"就判定通过。UI 断言和 DB 断言必须都通过才算
    通过；只有 UI 断言通过、DB 断言没查或没通过，如实报告为"部分通过"。
 
+## 被 `describe` skill 调用时
+
+`describe` 的流程里，动了前端就会调本 skill：
+
+- **新模块**：先照上面的 Spec 格式写 `<FRONTEND_DIR>/testing/scenarios/<slug>.yaml`（`<slug>` 就是
+  `describe` 那次的 slug），再按「执行步骤」跑。
+- **环境**：`describe` 已经用 `dev-env` 起好并 `dev.sh dev wait` 等到就绪，直接拿它给的
+  前端地址 / DB 参数，不用自己再 `dev up`。
+- **证据目录**已按 `dev.sh slug` 的 slug 隔离（`testing/results/<slug>/...`），多个 `describe`
+  worktree 并行跑测试不会互相覆盖。
+- **结论回传**：任一 UI 或 DB 断言失败，就是 `describe` 那份 `REPORT.md` 里的**阻塞结论**——
+  不允许「页面看起来正常」就放行。chrome-devtools MCP 不可用时，如实报「可视化测试未执行」+ 原因，
+  不要静默跳过。
+
 ## 示例场景
 
 `scenarios/dept-create.yaml`——新增部门后在部门列表可见。选择器来自

@@ -26,7 +26,8 @@ workspace/                  （本仓库）          <workspace-name>/         �
 └── .claude/                 ───────────────▶  .claude/
     └── skills/
         ├── dev-env/
-        └── visual-test/
+        ├── visual-test/
+        └── describe/
 ```
 
 改这个仓库时按这个心智模型想："我现在改的东西，最终会原样出现在业务方的工作空间里"。
@@ -53,6 +54,9 @@ workspace/                  （本仓库）          <workspace-name>/         �
   见该文件头部注释，改动前先读
 - `visual-test` 的设计原则（不写解释器，直接用 chrome-devtools MCP + Bash）
   见 `visual-test/SKILL.md` 开头，这是踩过坑才定下来的，不要复古
+- `describe` 是编排 skill：`describe.sh` 只做「双 worktree 增删 + 拷 `.claude/` + 合并回 base」
+  这类机械活，判断类的事全在 `describe/SKILL.md`。它把「工作空间根不是仓库、里面是两个独立
+  子仓」这件事按「`init-workspace.sh` 的 worktree 版」处理——见 `describe.sh` 头部注释
 - `init-workspace.sh` 的 archetype 版本查询依赖 Maven Central 的
   `maven-metadata.xml` 是最新的——这与 `CLAUDE.md`（框架团队那份）的"版本核查纪律"
   是同一原则

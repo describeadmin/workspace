@@ -13,13 +13,14 @@
 ├── CLAUDE.md              本文件
 ├── .claude/
 │   ├── workspace.env       记录你的后端/前端目录名（dev-env skill 用它）
-│   └── skills/              两个可用的 Claude Code skill，见第 3 节
+│   └── skills/              三个可用的 Claude Code skill，见第 4 节
 ├── <name>-server/           后端，Maven 项目，由 describeadmin-archetype 生成
 └── <name>-web/               前端，由 @describeadmin/create-app 生成
 ```
 
 这四样东西是同一次 `init-workspace.sh` 一起生成的。工作空间根目录本身**不是 git 仓库**——
-你的两个项目 `<name>-server`/`<name>-web` 各自是独立仓库，正常提交推送即可；
+你的两个项目 `<name>-server`/`<name>-web` 各自是独立仓库（`init-workspace.sh` 已经
+`git init` + 首次提交好了），正常提交推送即可；
 `.claude/` 与本文件不受版本控制，换一台机器需要重新跑一次 `init-workspace.sh`
 （或者你也可以自己把这两样东西加进某个仓库，按你的习惯来）。
 
@@ -56,17 +57,22 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 `data-testid` 不是装饰性约定——`visual-test` skill（见第 4 节）靠它定位页面元素，
 没打的交互元素 AI 没法自动化测试。
 
-## 4. 两个 Claude Code Skill
+## 4. 三个 Claude Code Skill
 
-`.claude/skills/` 下有两个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
+`.claude/skills/` 下有三个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
 你也可以直接要求"用 dev-env 起一下环境"这样触发：
 
 - **`dev-env`**：一条命令拉起/查看/停止本地开发环境（后端 + 前端 + 共享 MySQL/Redis），
   支持多个 `git worktree` 并行开发互不干扰。命令本体在
-  `.claude/skills/dev-env/dev.sh`，`slug`/`dev up`/`dev status`/`dev down` 几个子命令。
+  `.claude/skills/dev-env/dev.sh`，`slug`/`dev up`/`dev wait`/`dev status`/`dev down` 几个子命令。
 - **`visual-test`**：AI 自动打开浏览器走一遍页面操作 + 核对数据库，产出带截图/日志的
   报告，不是只看"页面看起来正常"就下结论。格式与示例见
   `.claude/skills/visual-test/SKILL.md`。
+- **`describe`**：把一个需求跑完整条链路——你给需求描述 + 参考材料（PRD / 参考代码 /
+  图片 / 文档），AI 先建一个隔离的双 `git worktree` 沙箱，出开发计划给你确认（中途可追问），
+  确认后自主实现、跑完整测试、动了前端就跑可视化测试，最后停在"待合并"并产出报告。
+  你验证无误说一句"合并 `<slug>`"，它再把两个仓的分支合并回去并清理 worktree。
+  细节见 `.claude/skills/describe/SKILL.md`。
 
 ## 5. 你作为 API 消费者需要知道的一个坑
 

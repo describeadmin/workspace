@@ -22,11 +22,17 @@
 #   ./dev.sh dev up          拉起共享 MySQL/Redis（幂等）+ 建本 worktree 专属 schema
 #                            + 后台起后端与前端
 #   ./dev.sh dev status      查看本 worktree 开发环境的进程/端口
+#   ./dev.sh dev wait [back|front|all] [--timeout <秒，默认 180>]
+#                            阻塞到对应端口可连接（后端还会盯日志的启动完成/失败行）；
+#                            给自动化流程（describe / visual-test）用，不用人肉看日志
 #   ./dev.sh dev logs back|front   跟踪对应进程日志
 #   ./dev.sh dev down        停止【本 worktree 的】应用进程；不动共享的 MySQL/Redis
 #                            容器——同项目的其他 worktree 可能还在用
 #
-# 可覆盖的环境变量（均有派生默认值）：
+# 可覆盖的环境变量（写进 workspace.env 或直接 export，均有默认值）：
+#   DEV_MYSQL_IMAGE   默认 mysql:5.7 —— 与框架的兼容基线一致（框架的 DDL/基类 SQL
+#     要能跑在业主可能用的 5.7 上，本地默认也跑 5.7 以便尽早暴露不兼容）。
+#     你自己的库是 8.x 就设成 mysql:8.0 让本地对齐线上；这只影响本地开发容器
 #   DEV_MYSQL_ROOT_PASSWORD   默认 root
 #   DEV_APP_DB_USER / DEV_APP_DB_PASSWORD   默认 app / app
 #   DEV_MYSQL_PORT / DEV_REDIS_PORT   默认按 PROJECT_NAME 派生（见下），
@@ -40,6 +46,10 @@
 #     的"先查是否存在再创建"没有加锁，两个进程同时跑会在"查的时候还没有、
 #     创建的时候已经被对方创建了"这个窗口期撞上 `docker run` 的 name 冲突报错
 #     （本轮真实撞见过一次）。单次调用本身是幂等的，问题只在并发调用
+#   - DEV_MYSQL_IMAGE 只在【首次创建共享容器】时生效。容器已存在时 `dev up` 直接复用，
+#     改了值不会自动换镜像——要换先 `docker rm -f $MYSQL_CONTAINER`（会清掉该项目
+#     所有 worktree 的开发数据，schema 下次 `dev up` 会自动重建）。MySQL 容器是
+#     项目级共享的，同项目的多个 worktree 用同一个版本，不能各自挑
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -63,6 +73,7 @@ source "$WORKSPACE_ENV"
 : "${FRONTEND_DIR:?workspace.env 缺 FRONTEND_DIR}"
 : "${PROJECT_NAME:?workspace.env 缺 PROJECT_NAME}"
 
+DEV_MYSQL_IMAGE="${DEV_MYSQL_IMAGE:-mysql:5.7}"
 DEV_MYSQL_ROOT_PASSWORD="${DEV_MYSQL_ROOT_PASSWORD:-root}"
 DEV_APP_DB_USER="${DEV_APP_DB_USER:-app}"
 DEV_APP_DB_PASSWORD="${DEV_APP_DB_PASSWORD:-app}"
@@ -106,6 +117,7 @@ print_params() {
 worktree slug: $SLUG
 --- 共享（同项目全部 worktree 共用）---
 MySQL 容器  : $MYSQL_CONTAINER  端口 $DEV_MYSQL_PORT
+MySQL 镜像  : $DEV_MYSQL_IMAGE  (DEV_MYSQL_IMAGE 可覆盖)
 Redis 容器  : $REDIS_CONTAINER  端口 $DEV_REDIS_PORT
 --- 本 worktree 专属 ---
 后端端口    : $BACKEND_PORT   (SERVER_PORT)
@@ -181,11 +193,12 @@ ensure_dev_mysql() {
       || docker start "$MYSQL_CONTAINER" >/dev/null
   else
     echo "▸ 首次运行，创建共享 MySQL 容器 $MYSQL_CONTAINER（端口 $DEV_MYSQL_PORT）"
+    echo "  镜像 $DEV_MYSQL_IMAGE（改 DEV_MYSQL_IMAGE 可对齐你的线上版本）"
     docker run -d --name "$MYSQL_CONTAINER" -p "${DEV_MYSQL_PORT}:3306" \
       -e MYSQL_ROOT_PASSWORD="$DEV_MYSQL_ROOT_PASSWORD" \
       -e MYSQL_DATABASE=describeadmin \
       -e MYSQL_USER="$DEV_APP_DB_USER" -e MYSQL_PASSWORD="$DEV_APP_DB_PASSWORD" \
-      mysql:5.7 --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci >/dev/null
+      "$DEV_MYSQL_IMAGE" --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci >/dev/null
   fi
 
   echo "▸ 等待 $MYSQL_CONTAINER 就绪..."
@@ -288,7 +301,74 @@ dev_logs() {
   esac
 }
 
-usage() { sed -n '2,35p' "$0"; }
+# 端口能不能连上。Windows 走 .NET TcpClient（比 Test-NetConnection 快、不做 DNS），
+# 其余平台走 bash 的 /dev/tcp。
+port_listening() {
+  local port="$1"
+  if is_windows; then
+    powershell -NoProfile -Command \
+      "try { \$c = New-Object Net.Sockets.TcpClient; \$c.Connect('127.0.0.1', $port); \$c.Close(); exit 0 } catch { exit 1 }" \
+      >/dev/null 2>&1
+  else
+    (exec 3<>"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1 && { exec 3>&- 3<&-; return 0; } || return 1
+  fi
+}
+
+# 阻塞到应用就绪。给自动化流程用——不用人肉 `dev logs` 盯着。
+# 后端：端口可连接，或日志出现 Spring Boot 的启动完成行即算就绪；
+#       日志出现明确失败行则不再干等，立刻退出并把尾部日志打出来。
+# 前端：端口可连接即算就绪（dev_up 用了 --strictPort，端口不会漂）。
+dev_wait() {
+  local what="all" timeout=180
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      back|backend) what="back"; shift ;;
+      front|frontend) what="front"; shift ;;
+      all) what="all"; shift ;;
+      --timeout) timeout="${2:-180}"; shift 2 ;;
+      *) echo "用法: dev.sh dev wait [back|front|all] [--timeout <秒>]" >&2; exit 1 ;;
+    esac
+  done
+
+  local want_back=0 want_front=0
+  [[ "$what" == "all" || "$what" == "back" ]] && want_back=1
+  [[ "$what" == "all" || "$what" == "front" ]] && want_front=1
+
+  local deadline=$(( $(date +%s) + timeout ))
+  local back_ok=0 front_ok=0
+  while :; do
+    if [[ $want_back == 1 && $back_ok == 0 ]]; then
+      if [[ -f "$STATE_DIR/backend.log" ]] \
+         && grep -qE "APPLICATION FAILED TO START|Error starting ApplicationContext|BUILD FAILURE" "$STATE_DIR/backend.log"; then
+        echo "✗ 后端启动失败，backend.log 尾部 30 行：" >&2
+        tail -n 30 "$STATE_DIR/backend.log" >&2
+        exit 1
+      fi
+      if port_listening "$BACKEND_PORT" \
+         || { [[ -f "$STATE_DIR/backend.log" ]] \
+              && grep -qE "Started .* in [0-9].* seconds|Tomcat started on port" "$STATE_DIR/backend.log"; }; then
+        back_ok=1; echo "✔ 后端就绪（端口 $BACKEND_PORT）"
+      fi
+    fi
+    if [[ $want_front == 1 && $front_ok == 0 ]] && port_listening "$FRONTEND_PORT"; then
+      front_ok=1; echo "✔ 前端就绪（端口 $FRONTEND_PORT）"
+    fi
+    if [[ ( $want_back == 0 || $back_ok == 1 ) && ( $want_front == 0 || $front_ok == 1 ) ]]; then
+      return 0
+    fi
+    if [[ $(date +%s) -ge $deadline ]]; then
+      echo "✗ 等待超时（${timeout}s）：后端就绪=$back_ok 前端就绪=$front_ok" >&2
+      [[ $want_back == 1 && $back_ok == 0 && -f "$STATE_DIR/backend.log" ]] \
+        && { echo "--- backend.log 尾部 ---" >&2; tail -n 30 "$STATE_DIR/backend.log" >&2; }
+      [[ $want_front == 1 && $front_ok == 0 && -f "$STATE_DIR/frontend.log" ]] \
+        && { echo "--- frontend.log 尾部 ---" >&2; tail -n 30 "$STATE_DIR/frontend.log" >&2; }
+      exit 1
+    fi
+    sleep 2
+  done
+}
+
+usage() { sed -n '2,38p' "$0"; }
 
 main() {
   local group="${1:-}"; shift || true
@@ -299,6 +379,7 @@ main() {
         up) dev_up ;;
         down) dev_down ;;
         status) dev_status ;;
+        wait) shift; dev_wait "$@" ;;
         logs) shift; dev_logs "${1:-}" ;;
         *) usage; exit 1 ;;
       esac

@@ -20,9 +20,9 @@
 #   ├── CLAUDE.md                业务方视角的约定说明
 #   ├── .claude/
 #   │   ├── workspace.env         dev-env skill 读取的目录名/项目名配置
-#   │   └── skills/                dev-env、visual-test 两个 Claude Code skill
-#   ├── <workspace-name>-server/   后端，describeadmin-archetype 生成
-#   └── <workspace-name>-web/       前端，@describeadmin/create-app 生成
+#   │   └── skills/                dev-env、visual-test、describe 三个 Claude Code skill
+#   ├── <workspace-name>-server/   后端，describeadmin-archetype 生成 + git init
+#   └── <workspace-name>-web/       前端，@describeadmin/create-app 生成 + git init
 #
 set -euo pipefail
 
@@ -97,7 +97,26 @@ mvn -B archetype:generate \
 echo "▸ 生成前端工程 $FRONTEND_DIR ..."
 npm create @describeadmin/app@latest -- "$FRONTEND_DIR" >/dev/null
 
-# --- 4. 拉取 AI 工作目录（.claude/ + CLAUDE.md） ---
+# --- 4. git 初始化两个子项目 ---
+# archetype / create-app 都不建仓，但 CLAUDE.md 讲的是「你的两个项目各自是独立仓库」，
+# 且 describe / dev-env 的 git worktree 能力都以此为前提。这里补上：各自 init + 首次提交。
+for proj in "$BACKEND_DIR" "$FRONTEND_DIR"; do
+  if [[ -d "$proj/.git" ]]; then
+    echo "▸ $proj 已是 git 仓库，跳过"
+    continue
+  fi
+  echo "▸ git 初始化 $proj ..."
+  git -C "$proj" init -b main >/dev/null
+  git -C "$proj" add -A
+  if [[ -n "$(git -C "$proj" config user.email || true)" ]]; then
+    git -C "$proj" commit -q -m "chore: initial commit from init-workspace.sh"
+  else
+    git -C "$proj" -c user.name="describeadmin" -c user.email="init@describeadmin.local" \
+      commit -q -m "chore: initial commit from init-workspace.sh"
+  fi
+done
+
+# --- 5. 拉取 AI 工作目录（.claude/ + CLAUDE.md） ---
 # 本地已 clone 本仓库、直接运行脚本的场景：脚本旁边就有这两样东西，直接复制。
 # curl | bash 管道执行的场景：$0 不是磁盘上的真实文件，没有本地文件可用，
 # 走 git clone 到临时目录再复制。
@@ -122,11 +141,15 @@ else
   cp "$TMP_DIR/CLAUDE.md" .
 fi
 
-# --- 5. 写 workspace.env，dev-env skill 靠它知道目录名/项目名 ---
+# --- 6. 写 workspace.env，dev-env skill 靠它知道目录名/项目名 ---
 cat > .claude/workspace.env <<EOF
 BACKEND_DIR=$BACKEND_DIR
 FRONTEND_DIR=$FRONTEND_DIR
 PROJECT_NAME=$NAME
+
+# 本地开发用的 MySQL 镜像。默认 mysql:5.7（对齐框架的兼容基线）。
+# 你的线上库是 8.x 就取消下一行注释，让本地环境对齐线上：
+# DEV_MYSQL_IMAGE=mysql:8.0
 EOF
 
 # 前端代理目标如果不是默认值，顺手写进 .env，省得手动改
@@ -144,5 +167,6 @@ echo "  2. 或者手工分别起：cd $BACKEND_DIR && mvn spring-boot:run -Dspri
 echo "               cd $FRONTEND_DIR && pnpm install && pnpm dev"
 echo "  3. 管理员账号 admin，口令随机生成——见后端启动日志或 $BACKEND_DIR/.passwd"
 echo
-echo "把 $NAME 打开交给 AI Agent（读 CLAUDE.md 即可开工），或用 dev-env / visual-test"
-echo "两个 skill 起环境、跑自动化测试——细节见 .claude/skills/*/SKILL.md。"
+echo "两个子项目已各自 git init + 首次提交（describe skill 的 worktree 能力以此为前提）。"
+echo "把 $NAME 打开交给 AI Agent（读 CLAUDE.md 即可开工）：直接描述需求走 describe skill 全流程，"
+echo "或用 dev-env / visual-test 单独起环境、跑自动化测试——细节见 .claude/skills/*/SKILL.md。"
