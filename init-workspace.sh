@@ -151,9 +151,9 @@ PROJECT_NAME=$NAME
 # 你的线上库是 8.x 就取消下一行注释，让本地环境对齐线上：
 # DEV_MYSQL_IMAGE=mysql:8.0
 
-# codegen 生成器的版本。留空＝codegen skill 每次取 GitHub 上最新的 Release。
-# 想钉版本（比如生成的代码与当前框架版本对不上、编译不过时）取消下一行注释：
-# CODEGEN_VERSION=0.1.1
+# codegen 生成器的版本。留空＝跟随后端 pom.xml 的 <describeadmin.version>（codegen 与
+# 框架同号发布）。只在想临时用别的 codegen 版本时才取消下一行注释、填具体版本：
+# CODEGEN_VERSION=
 EOF
 
 # 前端代理目标如果不是默认值，顺手写进 .env，省得手动改

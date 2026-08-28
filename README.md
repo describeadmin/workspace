@@ -60,9 +60,9 @@ workspace/                  （本仓库）          <workspace-name>/         �
   子仓」这件事按「`init-workspace.sh` 的 worktree 版」处理——见 `describe.sh` 头部注释
 - `codegen` skill **没有配套脚本**：生成器是外部 jar，"下载 + 校验 + 缓存到
   `~/.describeadmin/codegen/<版本>/` + `java -jar`" 这套步骤直接写在 `codegen/SKILL.md` 里
-  交给 AI 执行。缓存是 per-user、跨项目/worktree 共用的，刻意不放进工作空间。
-  版本经 `workspace.env` 的 `CODEGEN_VERSION` 可钉，默认取 GitHub 最新 Release。
-  codegen 走自己的版本线，与框架版本号不对齐是正常的
+  交给 AI 执行。缓存是 per-user、按版本号分目录、跨项目/worktree 共用的，刻意不放进工作空间。
+  **codegen 版本号与框架一致**——默认按业务后端 `pom.xml` 的 `<describeadmin.version>`
+  取同号 jar；`workspace.env` 的 `CODEGEN_VERSION` 可临时覆盖
 - `init-workspace.sh` 的 archetype 版本查询依赖 Maven Central 的
   `maven-metadata.xml` 是最新的——这与 `CLAUDE.md`（框架团队那份）的"版本核查纪律"
   是同一原则

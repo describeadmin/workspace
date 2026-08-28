@@ -24,20 +24,25 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 
 ## 1. 备好 jar（首次用 / 换机器时）
 
-1. **定版本**：`.claude/workspace.env` 里有 `CODEGEN_VERSION` 就用它；否则取最新——
-   `curl -fsSL https://api.github.com/repos/describeadmin/codegen/releases/latest`，
-   从响应里读 `tag_name`（形如 `0.1.1` 或 `v0.1.1`），以及 `assets[]` 里
-   `codegen.jar` 和 `codegen.jar.sha256` 两项的 `browser_download_url`。
-2. **看缓存**：`~/.describeadmin/codegen/<版本>/codegen.jar`。
+1. **定版本 —— codegen 版本号跟框架走**。按顺序取：
+   - `.claude/workspace.env` 里的 `CODEGEN_VERSION`（显式覆盖时才有）；否则
+   - `<BACKEND_DIR>/pom.xml` 里的 `<describeadmin.version>`（`framework-bom` 的版本，形如 `0.2.0`）——
+     **这是默认**，codegen 与框架同号发布，生成的薄代码对应同号框架的基类契约；否则
+   - 都取不到，退到 `curl -fsSL https://api.github.com/repos/describeadmin/codegen/releases/latest`
+     的 `tag_name`。
+2. **定位 Release**：`curl -fsSL https://api.github.com/repos/describeadmin/codegen/releases`，
+   找 `tag_name` 与上一步版本同号的那个（`0.2.0` 与 `v0.2.0` 都算）。严格同号找不到就取同
+   `大.小` 的最新（框架发了补丁号而 codegen 没跟的情况）。从它的 `assets[]` 取 `codegen.jar`
+   和 `codegen.jar.sha256` 的 `browser_download_url`（别自己拼 URL）。
+3. **看缓存**：`~/.describeadmin/codegen/<版本>/codegen.jar`。
    已存在，且 `sha256sum codegen.jar` 的哈希与同目录 `codegen.jar.sha256` 文件里的一致
-   → 直接用，跳到第 4 步。
-3. **下载**：把 `codegen.jar` 和 `codegen.jar.sha256` 下到
-   `~/.describeadmin/codegen/<版本>/`（用上一步拿到的 `browser_download_url`，别自己拼 URL），
-   比对哈希一致才算数。下载不通又没有本地缓存 → 停下告诉用户，让他手动下到这个路径。
-4. 确认 `java` 在 PATH。
+   → 直接用，跳到第 5 步。
+4. **下载**：把两个文件下到 `~/.describeadmin/codegen/<版本>/`，比对哈希一致才算数。
+   下载不通又没有本地缓存 → 停下告诉用户，让他手动下到这个路径。
+5. 确认 `java` 在 PATH。
 
-> 缓存是 per-user 的：所有项目、所有 describe worktree 共用一份，`describe.sh clean` 不会动它。
-> 因此每台机器通常只下一次。
+> 缓存是 per-user 的：所有项目、所有 describe worktree 按版本号分目录共用，`describe.sh clean`
+> 不会动它。同一框架版本每台机器通常只下一次；多个项目用不同框架版本时各自的 jar 并存。
 
 ## 2. 写 spec
 
@@ -87,9 +92,10 @@ java -jar ~/.describeadmin/codegen/<版本>/codegen.jar \
 
 ## 5. 生成的代码编译不过时
 
-生成的薄代码继承框架基类。如果它在你当前的框架版本下编译不过，通常是这个 codegen
-版本对应的基类契约比你的框架新——在 `.claude/workspace.env` 里钉一个更早的
-`CODEGEN_VERSION` 再重跑第 1、3 步。codegen 走自己的版本线，与框架版本号不对齐是正常的。
+codegen 与框架**同版本号发布**，正常情况下同号 jar 产出的薄代码就对应同号框架的基类契约。
+编译不过，八成是取错了版本——回第 1 步确认用的是 `<BACKEND_DIR>/pom.xml` 里
+`<describeadmin.version>` 的同号 jar，不是 `releases/latest` 兜底抓来的。确实需要临时用
+别的版本时，在 `.claude/workspace.env` 里钉 `CODEGEN_VERSION` 再重跑第 1~4 步。
 
 ## 6. 被 describe skill 调用时
 
