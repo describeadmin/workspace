@@ -132,7 +132,9 @@ evidence:
 
 ## 被 `describe` skill 调用时
 
-`describe` 的流程里，动了前端就会调本 skill：
+`describe` 的流程里，**当可视化测试能有效验证这次改动时**就会调本 skill——判据不是
+「前端有没有改动」，而是有没有一条真实浏览器 + DB 断言值得走的流程（新页面/改交互，
+或后端改动影响了既有页面能观察到的行为，或改了跨前后端流程）。详见 `describe` skill 的 A8：
 
 - **新模块**：先照上面的 Spec 格式写 `<FRONTEND_DIR>/testing/scenarios/<slug>.yaml`（`<slug>` 就是
   `describe` 那次的 slug），再按「执行步骤」跑。

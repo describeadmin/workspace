@@ -1,6 +1,6 @@
 ---
 name: describe
-description: Run a describeadmin feature end to end in an isolated dual git-worktree sandbox — take a requirement plus reference materials (PRD / reference code / images / docs), scaffold the worktree, produce a plan for the user to confirm, then autonomously implement, run the full backend + frontend tests, and (if the frontend changed) run a visual test, stopping at a "ready to merge" report. Also handles the follow-up: merging a reviewed feature branch back into both repos and cleaning up the worktree, or discarding an abandoned one. Use when the user describes a feature or change to build, or says to merge / land / clean up a describe worktree.
+description: Run a describeadmin feature end to end in an isolated dual git-worktree sandbox — take a requirement plus reference materials (PRD / reference code / images / docs), scaffold the worktree, produce a plan for the user to confirm, then autonomously implement, run the full backend + frontend tests, and (when a visual test would meaningfully verify the change) run one, stopping at a "ready to merge" report. Also handles the follow-up: merging a reviewed feature branch back into both repos and cleaning up the worktree, or discarding an abandoned one. Use when the user describes a feature or change to build, or says to merge / land / clean up a describe worktree.
 ---
 
 # describe：需求 → 独立 worktree → 计划确认 → 自主开发 → 测试 → 待合并
@@ -50,7 +50,8 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 ### A3. 收集输入
 
 把用户给的 PRD / 参考代码 / 图片 / 文档放进 `.worktrees/<slug>/inputs/`（或记下路径）。
-逐一读：图片和 PDF 直接 `Read`。参考代码只读、不照抄——本项目是平台/SDK，薄代码继承基类。
+逐一读：图片和 PDF 直接 `Read`。参考代码只读、不照抄——本项目基于 describeadmin 框架，
+业务代码继承框架基类保持"薄"，照搬参考实现常把该留在基类的通用逻辑重复进业务层。
 
 ### A4. 写计划
 
@@ -61,7 +62,7 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 - **数据库改动**：列出新增 / 改动的表、字段、索引。生成器产出的 `schema-*.sql` / `menu-*.sql` 要登记进后端的 `spring.sql.init`，否则重启后表不建——接口报错但错误信息不指向这里。SQL 语法按项目自己的数据库版本写，框架不做限制
 - **权限点**：`<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove`；新模块要同时登记 `menu-*.sql` 并授权
 - **`data-testid` 清单**：每个关键交互元素一条，格式 `<模块>-<对象>-<动作>`
-- **测试方案**：后端要新增哪些 `*Test.java`；前端 typecheck/build；要不要可视化测试、测哪条流程
+- **测试方案**：后端要新增哪些 `*Test.java`；前端 typecheck/build；**要不要可视化测试**（写明结论 + 理由，判据见 A8）、测哪条流程
 - **base 分支**：`describe.sh new` 输出里两个子仓分别从哪个分支切的，抄进来
 
 ### A5. 确认闸（唯一的人工闸）
@@ -91,7 +92,19 @@ cd <workspace>/.worktrees/<slug>/<FRONTEND_DIR> && pnpm install && pnpm typechec
 
 断言要比对**具体值**，不要只比对行数——字符集配错时 `COUNT(*)` 完全正常但中文全写成乱码，只比行数发现不了。
 
-### A8. 可视化测试（仅当动了前端）
+### A8. 可视化测试（有必要时）
+
+**不以「前端有没有改动」为判据**，而是判断走一遍真实浏览器 + DB 断言能不能有效验证这次改动。
+满足任一条就跑：
+
+- 前端有改动（新页面、改交互、改表单/校验、改数据绑定）
+- 后端改动会影响已有页面能观察到的行为（响应结构、权限点、列表/详情字段、新端点被既有页面消费）
+- 改了跨前后端的流程（登录、鉴权、分页、导出等）
+
+纯内部重构、仅文档/注释、纯后端且 UI 上无任何可观察差异、仅测试代码——**跳过**，
+并在 PLAN.md / REPORT.md 里写明「无需可视化测试」+ 一句理由。
+
+决定要跑，就起环境：
 
 ```bash
 cd <workspace>/.worktrees/<slug>
