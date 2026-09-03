@@ -1,6 +1,6 @@
 ---
 name: codegen
-description: Scaffold a describeadmin business module from a YAML spec using the codegen CLI jar — produces the backend four-piece set (Entity/Mapper/Service/Controller), schema + menu SQL, the frontend list page + API wrapper, and a structured acceptance-test spec, all as "thin" code over the framework base classes. Fetches and caches the codegen jar from GitHub Releases on first use. Use whenever a new CRUD module / business table is being added, whether or not the describe skill is driving it.
+description: Scaffold a describeadmin business module from a YAML spec using the codegen CLI jar — produces the backend four-piece set (Entity/Mapper/Service/Controller), schema + menu SQL, and the frontend list page + API wrapper, all as "thin" code over the framework base classes. Fetches and caches the codegen jar from GitHub Releases on first use. Use whenever a new CRUD module / business table is being added, whether or not the describe skill is driving it.
 ---
 
 # codegen：YAML spec → 一个业务模块的薄代码
@@ -12,7 +12,6 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 | 后端 | `entity/<X>Entity.java`、`mapper/<X>Mapper.java`、`service/<X>Service.java`、`controller/<X>Controller.java`（都继承框架基类，通用逻辑不重复写）|
 | SQL | `src/main/resources/db/schema-<表>.sql`、`menu-<表>.sql`（菜单 + 按钮权限点）|
 | 前端 | `src/api/<模块>.ts`、`src/views/<模块>/index.vue` |
-| 验收 | `test-specs/<模块>.yaml`（结构化端到端用例）|
 
 生成器是一个命令行 jar，**不进 `pom.xml`、不发 Maven Central**——它只产源码文本，
 产物落盘即与它无关，业务方运行时完全不需要它。

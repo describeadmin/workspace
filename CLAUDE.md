@@ -74,7 +74,7 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
   你验证无误说一句"合并 `<slug>`"，它再把两个仓的分支合并回去并清理 worktree。
   细节见 `.claude/skills/describe/SKILL.md`。
 - **`codegen`**：写一份 YAML spec，生成一个业务模块的薄代码（后端四件套 + 建表/菜单 SQL +
-  前端页面 + API 封装 + 验收用例）。它管生成器 jar 从 GitHub Release 的下载与缓存
+  前端页面 + API 封装）。它管生成器 jar 从 GitHub Release 的下载与缓存
   （`~/.describeadmin/codegen/<版本>/`，版本跟你后端 `pom.xml` 的 `<describeadmin.version>`
   一致）、spec 校验要点、以及生成后必须做的 SQL 登记。
   见 `.claude/skills/codegen/SKILL.md`。新增模块走它，不要手写——见第 6 节。
