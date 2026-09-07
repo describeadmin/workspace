@@ -46,7 +46,7 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 ## 2. 写 spec
 
 放在 `<BACKEND_DIR>/codegen-specs/<模块>.yaml`。完整格式见框架文档站的生成器一节；
-结构可照 `sample-app/codegen-specs/project.yaml`（那个模块没有一行手写代码，全部由 spec 生成）。
+结构可照 codegen 仓的 `examples/project.yaml`。
 
 字段 `type` **只有这些**，SQL 红线固化在类型系统里、生成器产不出违规 SQL：
 
