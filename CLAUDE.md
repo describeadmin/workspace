@@ -90,6 +90,35 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 的 `:total` 要求数字。你自己新增的 `Long` 字段如果不想转字符串，加
 `@JsonFormat(shape = JsonFormat.Shape.NUMBER)`。
 
+## 5.1 填下拉框：用 `/options`，不要拿分页接口凑
+
+表单里要「选一个部门」「选一个角色」「选一个项目」时，**不要调对方的分页列表接口**，
+更不要写 `?current=1&size=200` 这种"假装不分页"：
+
+- 数据超过那个 size 就**静默丢**，症状是下拉里找不到某一项，看不出是接口截断了；
+- **调大参数也修不好**——后端 `PageQuery` 的 size 上限就是 500；
+- 而且你会因此需要对方模块的 `xxx:list` 权限，一授，侧边栏就多出你不想要的管理入口。
+
+正确做法是调对应的选项接口，它们不分页、超限会明确报错而不是悄悄截断：
+
+| 要什么 | 调什么 | 需要什么权限 |
+|---|---|---|
+| 部门树 | `getDeptOptionsApi()` | 登录即可 |
+| 角色清单 | `getRoleOptionsApi(keyword?)` | 登录即可 |
+| 菜单树 | `getMenuOptionsApi()` | 登录即可 |
+| 字典项 | `getDictDataByTypeApi(dictType)` | 登录即可 |
+| **你自己的业务模块** | 生成器产出的 `getXxxOptionsApi(keyword?)` | 该模块的 `xxx:list` |
+
+返回的是统一的 `OptionItem`（`value` / `label`，树形多一个 `children`）：
+
+- **`value` 是字符串**（同第 5 节的理由）。绑 `node-key="value"`，自己合成的顶层节点
+  要写 `'0'` 而不是 `0`，否则 ElTreeSelect 严格相等匹配不上，表现为"选了没反应"。
+- 停用项带 `disabled: true`，**仍然会下发**——不下发的话，已经关联了该项的记录
+  一打开编辑表单就显示为空，看起来像"这条数据没填"，保存一次就真没了。
+
+业务模块的选项接口**照常走数据权限**：「本部门」档的角色在下拉里只看得到本部门的数据，
+与列表页一致。
+
 ## 6. 新增业务模块：用生成器，不要手写
 
 写一份 YAML spec，跑生成器，一次拿到后端四件套（Entity/Mapper/Service/Controller）+
