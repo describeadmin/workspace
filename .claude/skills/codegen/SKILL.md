@@ -25,12 +25,12 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 
 1. **定版本 —— codegen 版本号跟框架走**。按顺序取：
    - `.claude/workspace.env` 里的 `CODEGEN_VERSION`（显式覆盖时才有）；否则
-   - `<BACKEND_DIR>/pom.xml` 里的 `<describeadmin.version>`（`framework-bom` 的版本，形如 `0.2.0`）——
+   - `<BACKEND_DIR>/pom.xml` 里的 `<describeadmin.version>`（`framework-bom` 的版本，形如 `1.0.0`）——
      **这是默认**，codegen 与框架同号发布，生成的薄代码对应同号框架的基类契约；否则
    - 都取不到，退到 `curl -fsSL https://api.github.com/repos/describeadmin/codegen/releases/latest`
      的 `tag_name`。
 2. **定位 Release**：`curl -fsSL https://api.github.com/repos/describeadmin/codegen/releases`，
-   找 `tag_name` 与上一步版本同号的那个（`0.2.0` 与 `v0.2.0` 都算）。严格同号找不到就取同
+   找 `tag_name` 与上一步版本同号的那个（`1.0.0` 与 `v1.0.0` 都算）。严格同号找不到就取同
    `大.小` 的最新（框架发了补丁号而 codegen 没跟的情况）。从它的 `assets[]` 取 `codegen.jar`
    和 `codegen.jar.sha256` 的 `browser_download_url`（别自己拼 URL）。
 3. **看缓存**：`~/.describeadmin/codegen/<版本>/codegen.jar`。
