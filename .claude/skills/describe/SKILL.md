@@ -59,8 +59,8 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 
 - **需求理解**：一句话目标 + 验收标准（能观察到什么就算做完）
 - **受影响面**：后端模块 / 前端页面 / 要不要写 `codegen-specs/<模块>.yaml`
-- **数据库改动**：列出新增 / 改动的表、字段、索引。生成器产出的 `schema-*.sql` / `menu-*.sql` 要登记进后端的 `spring.sql.init`，否则重启后表不建——接口报错但错误信息不指向这里。SQL 语法按项目自己的数据库版本写，框架不做限制
-- **权限点**：`<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove`；新模块要同时登记 `menu-*.sql` 并授权
+- **数据库改动**：列出新增 / 改动的表、字段、索引。数据库变更写成 `db/changelog/app/<yyyyMMddHHmm>__<描述>.sql`（codegen 自动产出建表 + 菜单），重启由框架迁移层执行，不需要登记；已执行过的建表 changeset 不能改，加列 / 改列另起文件写 ALTER。SQL 语法按项目自己的数据库版本写，框架不做限制
+- **权限点**：`<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove`；新模块的菜单 changeset 里同时登记并授权（codegen 已生成；挂哪个目录用 spec 的 `menu.parent`）
 - **`data-testid` 清单**：每个关键交互元素一条，格式 `<模块>-<对象>-<动作>`
 - **测试方案**：后端要新增哪些 `*Test.java`；前端 typecheck/build；**要不要可视化测试**（写明结论 + 理由，判据见 A8）、测哪条流程
 - **base 分支**：`describe.sh new` 输出里两个子仓分别从哪个分支切的，抄进来
@@ -75,7 +75,7 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 确认后按计划做，全程在 worktree 里：
 
 - 优先走 codegen：调 `codegen` skill（写 `codegen-specs/<模块>.yaml` → 备好 jar → 生成）→
-  把新增的 `schema-*.sql` / `menu-*.sql` 登记进后端的 `spring.sql.init` → 重启后端验证表和菜单出现
+  重启后端验证表和菜单出现（changelog 由框架迁移层自动执行，不需要登记）
 - 手写代码继承 `BaseEntity` / `BaseMapper` / `BaseService` / `BaseController`，审计字段不重复定义
 - Controller 返回 `Result<T>`，异常交全局处理器
 - 前端交互元素带 `data-testid`；要用 Tailwind 工具类覆盖 Element Plus 组件自带的 `width`/`color` 等属性时必须加 `!` 前缀（`!w-48` 而不是 `w-48`）——Element Plus 的 CSS 未分层，裸工具类无论特异度都压不过它

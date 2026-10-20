@@ -1,6 +1,6 @@
 ---
 name: codegen
-description: Scaffold a describeadmin business module from a YAML spec using the codegen CLI jar — produces the backend four-piece set (Entity/Mapper/Service/Controller), schema + menu SQL, and the frontend list page + API wrapper, all as "thin" code over the framework base classes. Fetches and caches the codegen jar from GitHub Releases on first use. Use whenever a new CRUD module / business table is being added, whether or not the describe skill is driving it.
+description: Scaffold a describeadmin business module from a YAML spec using the codegen CLI jar — produces the backend four-piece set (Entity/Mapper/Service/Controller), a Liquibase changelog (table + menu), and the frontend list page + API wrapper, all as "thin" code over the framework base classes. Fetches and caches the codegen jar from GitHub Releases on first use. Use whenever a new CRUD module / business table is being added, whether or not the describe skill is driving it.
 ---
 
 # codegen：YAML spec → 一个业务模块的薄代码
@@ -10,7 +10,7 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 | 侧 | 产物 |
 |---|---|
 | 后端 | `entity/<X>Entity.java`、`mapper/<X>Mapper.java`、`service/<X>Service.java`、`controller/<X>Controller.java`（都继承框架基类，通用逻辑不重复写）|
-| SQL | `src/main/resources/db/schema-<表>.sql`、`menu-<表>.sql`（菜单 + 按钮权限点）|
+| 数据库 | `src/main/resources/db/changelog/app/<yyyyMMddHHmm>__<表>.sql`（Liquibase changelog：建表 + 菜单 + 按钮权限点）|
 | 前端 | `src/api/<模块>.ts`、`src/views/<模块>/index.vue` |
 
 生成器是一个命令行 jar，**不进 `pom.xml`、不发 Maven Central**——它只产源码文本，
@@ -61,6 +61,21 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 - `entity` 带了 `Entity` 后缀（生成器会自动加）
 - 索引列 `VARCHAR` 超过 191（utf8mb4 下会突破 MySQL 5.7 的 767 字节键长上限）
 - 非字符串类型用了 `query: like`
+- `menu` 下写了未知的键（如把 `parent` 拼错）——这里写错不报错的话菜单会静默挂回默认目录
+
+菜单默认挂在「业务管理」`/biz` 下。挂到别的一级目录（如花名册）在 spec 里写：
+
+```yaml
+menu:
+  parent:
+    path: /roster        # 必填，一级路径
+    name: 花名册          # 必填，目录不存在时用它新建
+    icon: lucide:users   # 可选
+    sort: 20             # 可选
+```
+
+**不要生成后手改菜单 SQL 去改挂目录**：生成的菜单 SQL 会自己幂等地确保父目录存在，
+手改成「挂到别的文件建的目录下」就又引入了文件之间的执行顺序依赖。
 
 ## 3. 跑
 
@@ -76,12 +91,16 @@ java -jar ~/.describeadmin/codegen/<版本>/codegen.jar \
 
 ## 4. 生成之后（三个隐坑，都不指向自己）
 
-1. **登记 SQL**。`schema-<表>.sql` 和 `menu-<表>.sql` 必须加进 `<BACKEND_DIR>` 的
-   `spring.sql.init`（`application-local.yml` 的 `schema-locations` / `data-locations`），
-   并保留 `encoding: UTF-8`。不登记的症状：重启后表不建、接口报错、侧边栏没有入口，
-   而报错信息里没有任何东西指向这一步。
+1. **SQL 不用登记，但 changelog 有规矩**。`db/changelog/app/<时间戳>__<表>.sql` 由框架的迁移层
+   在启动时自动执行（local profile 的 `describeadmin.migration.mode: apply`），重启后端即建表、出菜单。
+   - `<表>-create` 执行过就**不能再改**——校验和不符，所有已建库的环境都会拒绝启动。
+     之后加列 / 改列在同一目录**新建** `<yyyyMMddHHmm>__<描述>.sql` 写 ALTER，
+     首行照抄 `--liquibase formatted sql logicalFilePath:app/<文件名>`（不写启动即报错）。
+   - `<表>-menu` 是 `runOnChange`，可以改，改了整体重跑，语句保持 `INSERT ... WHERE NOT EXISTS`。
+   - 对已生成过的表 `--force` 重新生成会沿用原文件名，并提示「覆盖了已有的 changelog」——
+     如果 create 已在某个库上执行过，别覆盖，改走新文件写 ALTER。
 2. **权限点前缀**。模块名含下划线时（`my_module` → `@RequestMapping` 推导得 `/api/my-module`
-   → 推出 `my-module`，而 `menu-*.sql` 里的权限点是 `my_module`）会错配，
+   → 推出 `my-module`，而菜单 changeset 里的权限点是 `my_module`）会错配，
    表现为**连管理员账号都被 403**。生成的 Controller 已直接写 `permPrefix()` 覆写来兜住；
    自己手改过 `@RequestMapping` 的话要核对推导结果和权限点一致。
 3. **不要另写 `list` 重载**。想给列表加筛选就改 spec 里字段的 `query`（`eq` / `like` / `range`），
@@ -100,4 +119,4 @@ codegen 与框架**同版本号发布**，正常情况下同号 jar 产出的薄
 
 `describe` 的自主实现阶段（A6）会走到这里：spec 写在 worktree 内的
 `<BACKEND_DIR>/codegen-specs/`，`--out` / `--frontend-out` 指向 worktree 内的两个子目录，
-其余一致。生成 + 登记 SQL 后重启后端，确认表和菜单出现，再往下做。
+其余一致。生成后重启后端，确认表和菜单出现，再往下做。

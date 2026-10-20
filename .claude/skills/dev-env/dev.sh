@@ -262,7 +262,7 @@ dev_up() {
   echo "✔ 已拉起本 worktree（$SLUG）专属开发环境"
   print_params
   echo
-  echo "首次启动后端需要跑一遍建表+种子（几秒到几十秒），"
+  echo "首次启动后端会执行数据库迁移（建表+种子，几秒到几十秒），"
   echo "用 './dev.sh dev logs back' 看进度；前端就绪后访问 http://localhost:$FRONTEND_PORT"
 }
 

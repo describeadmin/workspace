@@ -76,7 +76,7 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 - **`codegen`**：写一份 YAML spec，生成一个业务模块的薄代码（后端四件套 + 建表/菜单 SQL +
   前端页面 + API 封装）。它管生成器 jar 从 GitHub Release 的下载与缓存
   （`~/.describeadmin/codegen/<版本>/`，版本跟你后端 `pom.xml` 的 `<describeadmin.version>`
-  一致）、spec 校验要点、以及生成后必须做的 SQL 登记。
+  一致）、spec 校验要点、菜单挂哪个目录（`menu.parent`），以及生成后数据库 changelog 的规矩。
   见 `.claude/skills/codegen/SKILL.md`。新增模块走它，不要手写——见第 6 节。
 
 ## 5. 你作为 API 消费者需要知道的一个坑
@@ -123,10 +123,18 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 
 写一份 YAML spec，跑生成器，一次拿到后端四件套（Entity/Mapper/Service/Controller）+
 建表 SQL + 菜单 SQL + 前端页面 + API 封装。**用 `codegen` skill**（第 4 节）——它管
-生成器 jar 的下载缓存、spec 校验要点、以及生成后必须做的 SQL 登记与两个隐坑
+生成器 jar 的下载缓存、spec 校验要点、changelog 的规矩与两个隐坑
 （下划线模块名导致的权限点 403、别自写 `list` 重载）。spec 格式见框架文档站的生成器一节。
-生成的 SQL 不登记进 `<name>-server` 的 `spring.sql.init`，重启后表不会建、菜单不出现，
-且报错不指向这里。
+
+数据库变更（建表、加列、菜单、字典）一律是 `<name>-server/src/main/resources/db/changelog/app/`
+下的 Liquibase changelog，文件名 `<yyyyMMddHHmm>__<描述>.sql`，**放进去重启即执行，不需要登记**：
+
+- 已执行过的 DDL changeset **不能再改**（校验和不符，所有已建库的环境都会拒绝启动），
+  加列 / 改列新建文件写 ALTER；每个文件首行必须是
+  `--liquibase formatted sql logicalFilePath:app/<文件名>`，否则启动即报错。
+- 启动时做什么由 `describeadmin.migration.mode` 决定：`application-local.yml` 是 `apply`（自动执行）；
+  生产不写，默认 `validate`——有未执行的变更就拒绝启动。生产要么用
+  `--describeadmin.migration.mode=print-sql` 生成 SQL 交给 DBA，要么显式 `apply` 启动一次。
 
 ## 7. 不在本文件里的内容
 
