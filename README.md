@@ -26,9 +26,10 @@ workspace/                  （本仓库）          <workspace-name>/         �
 └── .claude/                 ───────────────▶  .claude/
     └── skills/
         ├── dev-env/
-        ├── visual-test/
+        ├── acceptance-test/
         ├── describe/
-        └── codegen/
+        ├── codegen/
+        └── git-sync/
 ```
 
 改这个仓库时按这个心智模型想："我现在改的东西，最终会原样出现在业务方的工作空间里"。
@@ -53,11 +54,17 @@ workspace/                  （本仓库）          <workspace-name>/         �
 
 - `dev-env/dev.sh` 的隔离设计（项目级共享容器 vs worktree 级独立进程/schema）
   见该文件头部注释，改动前先读
-- `visual-test` 的设计原则（不写解释器，直接用 chrome-devtools MCP + Bash）
-  见 `visual-test/SKILL.md` 开头，这是踩过坑才定下来的，不要复古
+- `acceptance-test`（前身 `visual-test`）沿用「不写解释器」原则——浏览器操作直接用
+  chrome-devtools MCP、DB 断言直接 `mysql`、报告直接写 Markdown，没有配套脚本。
+  这条是踩过坑才定下来的，不要复古。与前身的区别：不再维护 YAML 场景格式，验收标准是
+  自然语言清单（`describe` 从 `PLAN.md` 传入）；报告落在工作空间根 `reports/<name>/`，
+  **不进前后端仓库**
 - `describe` 是编排 skill：`describe.sh` 只做「双 worktree 增删 + 拷 `.claude/` + 合并回 base」
   这类机械活，判断类的事全在 `describe/SKILL.md`。它把「工作空间根不是仓库、里面是两个独立
   子仓」这件事按「`init-workspace.sh` 的 worktree 版」处理——见 `describe.sh` 头部注释
+- `git-sync` 与 `describe` 互补、不重叠：`git-sync.sh` 只在两个子仓的**主工作目录**做联动分支操作，
+  不碰 worktree。铁律是「先预检、后改动」（`push` / `pull` 面对两个独立远程，例外为逐仓报告）；
+  提交信息由 AI 读 diff 写，脚本只机械执行——见 `git-sync.sh` 头部注释
 - `codegen` skill **没有配套脚本**：生成器是外部 jar，"下载 + 校验 + 缓存到
   `~/.describeadmin/codegen/<版本>/` + `java -jar`" 这套步骤直接写在 `codegen/SKILL.md` 里
   交给 AI 执行。缓存是 per-user、按版本号分目录、跨项目/worktree 共用的，刻意不放进工作空间。

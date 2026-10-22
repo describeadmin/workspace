@@ -13,7 +13,7 @@
 #   工作空间根目录本身不是 git 仓库，里面 <name>-server / <name>-web 是两个独立仓库。
 #   `new` 对这两个仓各拉一个 git worktree 到 `<workspace>/.worktrees/<slug>/` 下，
 #   再把 `.claude/` + `CLAUDE.md` 拷过去，于是 `.worktrees/<slug>/` 就是一个
-#   完整的、可独立跑 dev-env / visual-test 的「工作空间形状」目录。
+#   完整的、可独立跑 dev-env / acceptance-test 的「工作空间形状」目录。
 #   dev-env 的 slug 取工作区绝对路径 hash —— 新路径天然得到独立端口/DB schema，
 #   共享的 MySQL/Redis 容器则因 PROJECT_NAME 不变而复用。零改动即隔离。
 #
@@ -27,7 +27,8 @@
 #         列出当前所有 describe worktree
 #   ./describe.sh land <slug>
 #         把 describe/<slug> 合并回两个子仓各自的 base 分支（本地 --no-ff，不 push），
-#         成功后自动清理 worktree。冲突则停下、如实报告，可解决后重跑。
+#         成功后把 reports/<slug>/ 留存到主工作空间根，再自动清理 worktree。
+#         冲突则停下、如实报告，可解决后重跑。
 #   ./describe.sh clean <slug> [--force]
 #         停服务 -> 摘 worktree -> 删分支 -> 删目录。无 --force 时，worktree 里
 #         有未提交的【已跟踪】改动会拒绝执行。
@@ -186,7 +187,8 @@ EOF
   echo "✔ describe worktree 就绪：$wt_root"
   echo "  分支：$branch（$BACKEND_DIR 从 $base_backend，$FRONTEND_DIR 从 $base_frontend）"
   echo "  参考材料丢进：$wt_root/inputs/"
-  echo "  计划/报告写在：$wt_root/notes/"
+  echo "  计划写在：    $wt_root/notes/PLAN.md"
+  echo "  验收报告：    $wt_root/reports/$slug/（由 acceptance-test 生成）"
   echo
   echo "--- 本 worktree 的 dev-env 隔离参数 ---"
   ( cd "$wt_root" && bash .claude/skills/dev-env/dev.sh slug ) || true
@@ -255,6 +257,14 @@ cmd_land() {
 
   echo
   echo "✔ 两个仓都已 --no-ff 合并 $BRANCH 进各自 base（本地，未 push）"
+
+  # 验收报告留存：worktree 马上要被 _clean 删掉，先把 reports/<slug>/ 复制到主工作空间根
+  if [[ -d "$wt_root/reports/$slug" ]]; then
+    mkdir -p "$WORKSPACE_DIR/reports"
+    rm -rf "$WORKSPACE_DIR/reports/$slug"
+    cp -r "$wt_root/reports/$slug" "$WORKSPACE_DIR/reports/$slug"
+    echo "▸ 验收报告已留存：$WORKSPACE_DIR/reports/$slug/REPORT.md"
+  fi
   _clean "$slug" 1
 
   echo

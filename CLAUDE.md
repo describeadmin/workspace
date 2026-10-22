@@ -13,12 +13,13 @@
 ├── CLAUDE.md              本文件
 ├── .claude/
 │   ├── workspace.env       记录你的后端/前端目录名（dev-env skill 用它）
-│   └── skills/              三个可用的 Claude Code skill，见第 4 节
+│   └── skills/              五个可用的 Claude Code skill，见第 4 节
 ├── <name>-server/           后端，Maven 项目，由 describeadmin-archetype 生成
-└── <name>-web/               前端，由 @describeadmin/create-app 生成
+├── <name>-web/               前端，由 @describeadmin/create-app 生成
+└── reports/                 验收报告（acceptance-test skill 产出，用到时才出现）
 ```
 
-这四样东西是同一次 `init-workspace.sh` 一起生成的。工作空间根目录本身**不是 git 仓库**——
+前四样东西是同一次 `init-workspace.sh` 一起生成的。工作空间根目录本身**不是 git 仓库**——
 你的两个项目 `<name>-server`/`<name>-web` 各自是独立仓库（`init-workspace.sh` 已经
 `git init` + 首次提交好了），正常提交推送即可；
 `.claude/` 与本文件不受版本控制，换一台机器需要重新跑一次 `init-workspace.sh`
@@ -54,25 +55,30 @@ public class OrderController extends BaseController<OrderService, OrderEntity> {
 | 权限点 | `<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove` 四个 | `order:item:edit` |
 | 前端 `data-testid` | `<模块>-<对象>-<动作>`，所有关键交互元素都要带，没带视为该功能"未完成" | `order-add-btn` |
 
-`data-testid` 不是装饰性约定——`visual-test` skill（见第 4 节）靠它定位页面元素，
+`data-testid` 不是装饰性约定——`acceptance-test` skill（见第 4 节）靠它定位页面元素，
 没打的交互元素 AI 没法自动化测试。
 
-## 4. 四个 Claude Code Skill
+## 4. 五个 Claude Code Skill
 
-`.claude/skills/` 下有四个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
+`.claude/skills/` 下有五个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
 你也可以直接要求"用 dev-env 起一下环境"这样触发：
 
 - **`dev-env`**：一条命令拉起/查看/停止本地开发环境（后端 + 前端 + 共享 MySQL/Redis），
   支持多个 `git worktree` 并行开发互不干扰。命令本体在
   `.claude/skills/dev-env/dev.sh`，`slug`/`dev up`/`dev wait`/`dev status`/`dev down` 几个子命令。
-- **`visual-test`**：AI 自动打开浏览器走一遍页面操作 + 核对数据库，产出带截图/日志的
-  报告，不是只看"页面看起来正常"就下结论。格式与示例见
-  `.claude/skills/visual-test/SKILL.md`。
+- **`acceptance-test`**：功能做完后的验收收尾——跑后端测试与前端 typecheck/build，
+  改动有可观察的界面行为时 AI 自动打开浏览器走一遍页面操作 + 核对数据库，
+  不是只看"页面看起来正常"就下结论。产出一份完整报告 `reports/<name>/REPORT.md`
+  （改动清单、测试输出、过程截图），不落进前后端项目。见 `.claude/skills/acceptance-test/SKILL.md`。
 - **`describe`**：把一个需求跑完整条链路——你给需求描述 + 参考材料（PRD / 参考代码 /
-  图片 / 文档），AI 先建一个隔离的双 `git worktree` 沙箱，出开发计划给你确认（中途可追问），
-  确认后自主实现、跑完整测试、动了前端就跑可视化测试，最后停在"待合并"并产出报告。
-  你验证无误说一句"合并 `<slug>`"，它再把两个仓的分支合并回去并清理 worktree。
-  细节见 `.claude/skills/describe/SKILL.md`。
+  图片 / 文档），AI 先建一个隔离的双 `git worktree` 沙箱，出开发计划（含验收清单）给你确认
+  （中途可追问），确认后自主实现、跑完整测试，再交给 `acceptance-test` 出验收报告，最后停在"待合并"。
+  你验证无误说一句"合并 `<slug>`"，它再把两个仓的分支合并回去、把报告留存到 `reports/<slug>/`
+  并清理 worktree。细节见 `.claude/skills/describe/SKILL.md`。
+- **`git-sync`**：前后端两个仓库的分支联动——一起新建 / 切换 / 删除分支、一起提交
+  （提交信息按各仓 diff 分别写）、一起 push / pull，并在两仓当前分支不一致时告警。
+  它只动两个仓库的主工作目录，不碰 worktree（那是 `describe` 的事）。
+  见 `.claude/skills/git-sync/SKILL.md`。
 - **`codegen`**：写一份 YAML spec，生成一个业务模块的薄代码（后端四件套 + 建表/菜单 SQL +
   前端页面 + API 封装）。它管生成器 jar 从 GitHub Release 的下载与缓存
   （`~/.describeadmin/codegen/<版本>/`，版本跟你后端 `pom.xml` 的 `<describeadmin.version>`

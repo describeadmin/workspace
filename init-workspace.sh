@@ -20,7 +20,7 @@
 #   ├── CLAUDE.md                业务方视角的约定说明
 #   ├── .claude/
 #   │   ├── workspace.env         dev-env skill 读取的目录名/项目名配置
-#   │   └── skills/                dev-env、visual-test、describe、codegen 四个 Claude Code skill
+#   │   └── skills/                dev-env、acceptance-test、describe、codegen、git-sync 五个 Claude Code skill
 #   ├── <workspace-name>-server/   后端，describeadmin-archetype 生成 + git init
 #   └── <workspace-name>-web/       前端，@describeadmin/create-app 生成 + git init
 #
@@ -173,4 +173,4 @@ echo "  3. 管理员账号 admin，口令随机生成——见后端启动日志
 echo
 echo "两个子项目已各自 git init + 首次提交（describe skill 的 worktree 能力以此为前提）。"
 echo "把 $NAME 打开交给 AI Agent（读 CLAUDE.md 即可开工）：直接描述需求走 describe skill 全流程，"
-echo "或用 codegen 生成业务模块、dev-env / visual-test 单独起环境跑测试——细节见 .claude/skills/*/SKILL.md。"
+echo "或用 codegen 生成业务模块、dev-env / acceptance-test 单独起环境跑验收、git-sync 联动两仓分支——细节见 .claude/skills/*/SKILL.md。"

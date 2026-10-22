@@ -13,6 +13,8 @@ description: Scaffold a describeadmin business module from a YAML spec using the
 | 数据库 | `src/main/resources/db/changelog/app/<yyyyMMddHHmm>__<表>.sql`（Liquibase changelog：建表 + 菜单 + 按钮权限点）|
 | 前端 | `src/api/<模块>.ts`、`src/views/<模块>/index.vue` |
 
+验收测试不在这里生成——功能开发完成后由 `acceptance-test` skill 现场跑并产出报告（见其 SKILL.md）。
+
 生成器是一个命令行 jar，**不进 `pom.xml`、不发 Maven Central**——它只产源码文本，
 产物落盘即与它无关，业务方运行时完全不需要它。
 

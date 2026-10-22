@@ -32,7 +32,7 @@ description: Start, stop, or check the local dev environment for a describeadmin
 - 需要看报错日志 → `dev.sh dev logs back`（后端）或 `front`（前端），不要另外去猜
   日志文件在哪
 - 自动化流程里 `dev up` 之后要等环境真正就绪 → `dev.sh dev wait`（阻塞到端口可连接，
-  后端还会盯日志的启动完成/失败行）；`describe` 与 `visual-test` 都靠它，不要用 `sleep` 猜时间
+  后端还会盯日志的启动完成/失败行）；`describe` 与 `acceptance-test` 都靠它，不要用 `sleep` 猜时间
 
 ## 设计要点（改动这个 skill 前先读）
 

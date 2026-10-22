@@ -1,12 +1,12 @@
 ---
 name: describe
-description: Run a describeadmin feature end to end in an isolated dual git-worktree sandbox — take a requirement plus reference materials (PRD / reference code / images / docs), scaffold the worktree, produce a plan for the user to confirm, then autonomously implement, run the full backend + frontend tests, and (when a visual test would meaningfully verify the change) run one, stopping at a "ready to merge" report. Also handles the follow-up: merging a reviewed feature branch back into both repos and cleaning up the worktree, or discarding an abandoned one. Use when the user describes a feature or change to build, or says to merge / land / clean up a describe worktree.
+description: Run a describeadmin feature end to end in an isolated dual git-worktree sandbox — take a requirement plus reference materials (PRD / reference code / images / docs), scaffold the worktree, produce a plan for the user to confirm, then autonomously implement, run the full backend + frontend tests, and hand off to the acceptance-test skill for a final report (with visual verification when the change warrants it), stopping at a "ready to merge" state. Also handles the follow-up: merging a reviewed feature branch back into both repos and cleaning up the worktree, or discarding an abandoned one. Use when the user describes a feature or change to build, or says to merge / land / clean up a describe worktree.
 ---
 
 # describe：需求 → 独立 worktree → 计划确认 → 自主开发 → 测试 → 待合并
 
-一条剧本，把 `dev-env`、`visual-test` 和 Claude Code 原生的计划/自主循环串起来。
-**本 skill 不写任何测试运行时**——测试就是直接调 `mvn` / `pnpm` / `visual-test`。
+一条剧本，把 `dev-env`、`acceptance-test` 和 Claude Code 原生的计划/自主循环串起来。
+**本 skill 不写任何测试运行时**——测试就是直接调 `mvn` / `pnpm` / `acceptance-test`。
 
 机械活（建/摘 worktree、拷 `.claude/`、合并回 base）交给同目录的 `describe.sh`；
 判断活（拆需求、写代码、决定测什么、看报告下结论）是你的事。
@@ -20,8 +20,8 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 | 「`<slug>` 不要了」「删掉这个 worktree」 | **C. 放弃** |
 
 前置：本机有 git / mvn / pnpm / docker；`.claude/workspace.env` 存在（`init-workspace.sh`
-会写好）。可视化测试还需要 chrome-devtools MCP 可用——不可用时如实在报告里标注
-「可视化测试未执行」，不要静默跳过。
+会写好）。可视化验证还需要 chrome-devtools MCP 可用——不可用时 `acceptance-test` 会在报告里标注
+「可视化验证未执行」+ 原因，不要静默跳过。
 
 ---
 
@@ -57,12 +57,13 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 
 写到 `.worktrees/<slug>/notes/PLAN.md`，至少覆盖：
 
-- **需求理解**：一句话目标 + 验收标准（能观察到什么就算做完）
+- **需求理解**：一句话目标
+- **验收清单**：逐条「能观察到什么现象就算这次做对了」（自然语言）——A8 原样交给 `acceptance-test` 当验收标准
 - **受影响面**：后端模块 / 前端页面 / 要不要写 `codegen-specs/<模块>.yaml`
 - **数据库改动**：列出新增 / 改动的表、字段、索引。数据库变更写成 `db/changelog/app/<yyyyMMddHHmm>__<描述>.sql`（codegen 自动产出建表 + 菜单），重启由框架迁移层执行，不需要登记；已执行过的建表 changeset 不能改，加列 / 改列另起文件写 ALTER。SQL 语法按项目自己的数据库版本写，框架不做限制
 - **权限点**：`<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove`；新模块的菜单 changeset 里同时登记并授权（codegen 已生成；挂哪个目录用 spec 的 `menu.parent`）
 - **`data-testid` 清单**：每个关键交互元素一条，格式 `<模块>-<对象>-<动作>`
-- **测试方案**：后端要新增哪些 `*Test.java`；前端 typecheck/build；**要不要可视化测试**（写明结论 + 理由，判据见 A8）、测哪条流程
+- **测试方案**：后端要新增哪些 `*Test.java`；前端 typecheck/build；**要不要可视化验证**（写明结论 + 理由，判据见 `acceptance-test` 的 SKILL.md）、测哪条流程
 - **base 分支**：`describe.sh new` 输出里两个子仓分别从哪个分支切的，抄进来
 
 ### A5. 确认闸（唯一的人工闸）
@@ -92,19 +93,9 @@ cd <workspace>/.worktrees/<slug>/<FRONTEND_DIR> && pnpm install && pnpm typechec
 
 断言要比对**具体值**，不要只比对行数——字符集配错时 `COUNT(*)` 完全正常但中文全写成乱码，只比行数发现不了。
 
-### A8. 可视化测试（有必要时）
+### A8. 验收测试 + 报告
 
-**不以「前端有没有改动」为判据**，而是判断走一遍真实浏览器 + DB 断言能不能有效验证这次改动。
-满足任一条就跑：
-
-- 前端有改动（新页面、改交互、改表单/校验、改数据绑定）
-- 后端改动会影响已有页面能观察到的行为（响应结构、权限点、列表/详情字段、新端点被既有页面消费）
-- 改了跨前后端的流程（登录、鉴权、分页、导出等）
-
-纯内部重构、仅文档/注释、纯后端且 UI 上无任何可观察差异、仅测试代码——**跳过**，
-并在 PLAN.md / REPORT.md 里写明「无需可视化测试」+ 一句理由。
-
-决定要跑，就起环境：
+功能实现完、A7 的后端/前端测试跑完后，起环境并调 `acceptance-test` skill 收尾。
 
 ```bash
 cd <workspace>/.worktrees/<slug>
@@ -112,30 +103,31 @@ cd <workspace>/.worktrees/<slug>
 .claude/skills/dev-env/dev.sh dev wait --timeout 600   # 首次要下依赖+建表，给足时间
 ```
 
-- 新模块：先按 `visual-test` skill 的 Spec 格式写
-  `<FRONTEND_DIR>/testing/scenarios/<slug>.yaml`（选择器一律 `[data-testid="..."]`）
-- 调 `visual-test` skill 跑这个场景（以及其它受影响的既有场景），产出带截图 + DB 断言的报告
-- 跑完 `.claude/skills/dev-env/dev.sh dev down` —— 自己起的服务自己关
+调 `acceptance-test`，传入：
 
-任一断言失败 = 阻塞结论，如实写进 REPORT.md，不要「页面看起来正常」就放行。
+- **改动摘要** + **改了哪些文件**（A6 做的事，含每处为什么）
+- **验收清单**：A4 PLAN.md 里那份，原样传
+- **输出目录**：`<workspace>/.worktrees/<slug>/reports/<slug>/`
+- **A7 的测试输出**：后端 `mvn test` 关键行、前端 typecheck/build 结果，一并给它，省得重跑
 
-### A9. 提交 + 报告
+`acceptance-test` 自己判断要不要做可视化验证（判据见它的 SKILL.md）、产出
+`reports/<slug>/REPORT.md` + `images/`。跑完 `.claude/skills/dev-env/dev.sh dev down`——
+自己起的服务自己关。
+
+任一断言失败 = 阻塞结论，`acceptance-test` 会如实写进报告，不要「页面看起来正常」就放行。
+
+### A9. 提交
 
 在 `describe/<slug>` 分支上，两个子仓各自 `git add -A && git commit`（提交信息说清做了什么）。
-**不 push、不 merge。**
+**不 push、不 merge。** 两个子仓各自的 commit hash 补进 A8 产出的 `reports/<slug>/REPORT.md`。
 
-写 `.worktrees/<slug>/notes/REPORT.md`：
-
-- 改动清单（哪些文件、为什么）
-- 后端测试输出（原样贴关键行：`Tests run: X, Failures: 0`）
-- 前端 typecheck / build 结果
-- 可视化测试结论 + 截图路径（或「未执行」+ 原因）
-- 两个子仓各自的 commit hash
-- **给用户的下一步**：验证无误回一句「合并 `<slug>`」；或「`<slug>` 不要了」放弃
+报告已经是 A8 的产物——涵盖改动清单、后端测试输出、前端 typecheck/build、可视化验证结论 + 截图，
+不再单独写 `notes/REPORT.md`。只在报告结尾补一句给用户的下一步：验证无误回「合并 `<slug>`」；
+或「`<slug>` 不要了」放弃。
 
 ### A10. 交回用户
 
-告诉用户报告在 `.worktrees/<slug>/notes/REPORT.md`，worktree 原地留着等他验证。
+告诉用户报告在 `.worktrees/<slug>/reports/<slug>/REPORT.md`，worktree 原地留着等他验证。
 
 ---
 
@@ -146,7 +138,8 @@ cd <workspace>/.worktrees/<slug>
 ```
 
 脚本做的事：两个子仓主工作目录必须干净 → 各自 `git checkout <base>` +
-`git merge --no-ff describe/<slug>` → 全成功则自动清理 worktree + 删分支 →
+`git merge --no-ff describe/<slug>` → 全成功则把 worktree 里的 `reports/<slug>/` 复制到
+主工作空间根的 `reports/<slug>/`（报告留存）→ 自动清理 worktree + 删分支 →
 若子仓有 remote，打印（不执行）`git push` 命令。
 
 - **冲突**：脚本停在冲突的那个仓并报告，另一个仓不动。把冲突如实告诉用户，
@@ -161,8 +154,9 @@ cd <workspace>/.worktrees/<slug>
 .claude/skills/describe/describe.sh clean <slug> [--force]
 ```
 
-停服务 → 摘两个 worktree → 删 `describe/<slug>` 分支 → 删 `.worktrees/<slug>/`。
-worktree 里有未提交的**已跟踪**改动时，不加 `--force` 会拒绝执行（防止误删没提交的工作）。
+停服务 → 摘两个 worktree → 删 `describe/<slug>` 分支 → 删 `.worktrees/<slug>/`（`reports/<slug>/`
+随之一起没，放弃的需求不留报告）。worktree 里有未提交的**已跟踪**改动时，不加 `--force`
+会拒绝执行（防止误删没提交的工作）。
 
 ---
 
@@ -170,5 +164,6 @@ worktree 里有未提交的**已跟踪**改动时，不加 `--force` 会拒绝�
 
 - 分支名固定 `describe/<slug>`，两个子仓同名
 - 不在 `.worktrees/*` 里再跑 `describe.sh new`（脚本自检拦下）
+- 验收报告由 `acceptance-test` 产在 worktree 的 `reports/<slug>/`；`land` 时复制到主工作空间根，`clean`（放弃）时随 worktree 一起删
 - worktree 的 dev-env 隔离靠「工作区绝对路径 hash」，是 `dev-env` 既有机制，`describe` 不碰它
 - `describe.sh` 只做 git 管道 + 文件拷贝；想加「辅助脚本」先想清楚是不是真需要（大概率不需要）
