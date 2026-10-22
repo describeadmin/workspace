@@ -24,7 +24,7 @@
 #   ./dev.sh dev status      查看本 worktree 开发环境的进程/端口
 #   ./dev.sh dev wait [back|front|all] [--timeout <秒，默认 180>]
 #                            阻塞到对应端口可连接（后端还会盯日志的启动完成/失败行）；
-#                            给自动化流程（describe / visual-test）用，不用人肉看日志
+#                            给自动化流程（describe / acceptance-test）用，不用人肉看日志
 #   ./dev.sh dev logs back|front   跟踪对应进程日志
 #   ./dev.sh dev down        停止【本 worktree 的】应用进程；不动共享的 MySQL/Redis
 #                            容器——同项目的其他 worktree 可能还在用
@@ -252,8 +252,14 @@ dev_up() {
   echo "▸ 后台启动前端 $FRONTEND_DIR（端口 $FRONTEND_PORT，日志见 $STATE_DIR/frontend.log）"
   (
     cd "$WORKSPACE_DIR/$FRONTEND_DIR"
-    VITE_PROXY_TARGET="http://localhost:${BACKEND_PORT}" \
-    nohup pnpm run dev -- --port "$FRONTEND_PORT" --strictPort \
+    # 直接 `pnpm exec vite`，不走 `pnpm run dev -- --port ...`：pnpm v11 会把分隔符
+    # `--` 原样传给 vite，vite（cac 解析）将 `--` 之后的 `--port`/`--strictPort`
+    # 当作 raw 参数忽略，端口于是漂回 .env 里的 VITE_PORT，--strictPort 也不生效。
+    # `--mode development` 与 package.json 的 `dev` 脚本保持一致。
+    # 代理目标用 127.0.0.1 而非 localhost：Windows 双栈机上 Node 18+ 会先连 ::1，
+    # 而 mvn 起的 Undertow 只监听 IPv4，导致 /api 请求全部 502。
+    VITE_PROXY_TARGET="http://127.0.0.1:${BACKEND_PORT}" \
+    nohup pnpm exec vite --mode development --port "$FRONTEND_PORT" --strictPort \
       > "$STATE_DIR/frontend.log" 2>&1 &
     echo $! > "$STATE_DIR/frontend.pid"
   )
@@ -280,13 +286,17 @@ dev_down() {
 dev_status() {
   print_params
   echo
-  if pid_alive "$STATE_DIR/backend.pid"; then
-    echo "后端: 运行中 (pid $(cat "$STATE_DIR/backend.pid"))"
+  # 按端口判断，不看记录的 pid：Windows/MinGW 下 `echo $!` 落盘的要么是 MSYS 进程号
+  # （和 tasklist 的 Windows 进程号不是一套），要么是 mvn 启动器、而真正 listen 的
+  # java 服务是它早已脱离的孙进程——所以 pid_alive 恒为 false，报"未运行"。
+  # dev_down 用 kill_by_port、dev_wait 用 port_listening 兜的都是同一个坑。
+  if port_listening "$BACKEND_PORT"; then
+    echo "后端: 运行中 (端口 $BACKEND_PORT)"
   else
     echo "后端: 未运行"
   fi
-  if pid_alive "$STATE_DIR/frontend.pid"; then
-    echo "前端: 运行中 (pid $(cat "$STATE_DIR/frontend.pid"))"
+  if port_listening "$FRONTEND_PORT"; then
+    echo "前端: 运行中 (端口 $FRONTEND_PORT)"
   else
     echo "前端: 未运行"
   fi
@@ -301,16 +311,22 @@ dev_logs() {
   esac
 }
 
-# 端口能不能连上。Windows 走 .NET TcpClient（比 Test-NetConnection 快、不做 DNS），
-# 其余平台走 bash 的 /dev/tcp。
+# 端口上有没有 LISTEN 的套接字。
+# Windows 直接查 TCP 监听表（同 kill_by_port 的做法）：不做 DNS、不发连接，
+# 且对地址族无感——127.0.0.1 / ::1 / :: / 0.0.0.0 都能查到。
+# （早先用 .NET TcpClient 主动连：无参构造出来是 IPv4 socket，连不上只绑了 ::1
+# 的 vite，会把已启动的前端误报成"未运行"，dev_wait front 也随之白等超时。）
+# 其余平台走 bash 的 /dev/tcp，IPv4、IPv6 回环各试一次。
 port_listening() {
   local port="$1"
   if is_windows; then
     powershell -NoProfile -Command \
-      "try { \$c = New-Object Net.Sockets.TcpClient; \$c.Connect('127.0.0.1', $port); \$c.Close(); exit 0 } catch { exit 1 }" \
+      "if (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" \
       >/dev/null 2>&1
   else
-    (exec 3<>"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1 && { exec 3>&- 3<&-; return 0; } || return 1
+    (exec 3<>"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1 && { exec 3>&- 3<&-; return 0; }
+    (exec 3<>"/dev/tcp/::1/$port") >/dev/null 2>&1 && { exec 3>&- 3<&-; return 0; }
+    return 1
   fi
 }
 
