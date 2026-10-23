@@ -79,6 +79,10 @@ menu:
 **不要生成后手改菜单 SQL 去改挂目录**：生成的菜单 SQL 会自己幂等地确保父目录存在，
 手改成「挂到别的文件建的目录下」就又引入了文件之间的执行顺序依赖。
 
+权限点前缀用 `permPrefix`（可选）：不写是两段式 `<module>:list`；写 `permPrefix: sales:order`
+就是三段式 `sales:order:list`。**先看项目里已有模块用的是哪种，照着来**；拿不准就问用户。
+它与 `menu.parent` 无关，第一次生成前定好——授权之后再改，已勾好的授权就对不上了。
+
 ## 3. 跑
 
 ```bash
@@ -101,10 +105,10 @@ java -jar ~/.describeadmin/codegen/<版本>/codegen.jar \
    - `<表>-menu` 是 `runOnChange`，可以改，改了整体重跑，语句保持 `INSERT ... WHERE NOT EXISTS`。
    - 对已生成过的表 `--force` 重新生成会沿用原文件名，并提示「覆盖了已有的 changelog」——
      如果 create 已在某个库上执行过，别覆盖，改走新文件写 ALTER。
-2. **权限点前缀**。模块名含下划线时（`my_module` → `@RequestMapping` 推导得 `/api/my-module`
-   → 推出 `my-module`，而菜单 changeset 里的权限点是 `my_module`）会错配，
-   表现为**连管理员账号都被 403**。生成的 Controller 已直接写 `permPrefix()` 覆写来兜住；
-   自己手改过 `@RequestMapping` 的话要核对推导结果和权限点一致。
+2. **权限点前缀三处必须一致**：菜单 changelog 的 `perm_code`、Controller 的 `permPrefix()`、
+   列表页的 `usePermission(...)`。生成物三处都取自 spec 的 `permPrefix`（缺省为模块名），
+   对不上的表现是**连管理员账号都被 403**、按钮一个都不显示。手改其中任何一处都要三处一起改；
+   手写的 Controller 不要依赖 `@RequestMapping` 推导（`my_module` 的路径是 `/api/my-module`，推出 `my-module`）。
 3. **不要另写 `list` 重载**。想给列表加筛选就改 spec 里字段的 `query`（`eq` / `like` / `range`），
    Controller 会覆写框架的 `buildListWrapper` 生成真正生效的条件。自己再写一个带
    `@GetMapping` 的 `list(...)` 会和基类的 `list` 撞同一个 GET 路径，Spring 启动直接

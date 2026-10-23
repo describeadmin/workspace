@@ -11,12 +11,14 @@ curl -fsSL https://raw.githubusercontent.com/describeadmin/workspace/main/init-w
   | bash -s -- <workspace-name>
 ```
 
-详细说明见生成出来的 `<workspace-name>/CLAUDE.md`。
+使用说明见文档站的 [用 AI 工作空间开发](https://describeadmin.github.io/docs/guide/ai-workspace)，
+参数见 [脚手架参数](https://describeadmin.github.io/docs/reference/scaffolding#ai-工作空间-init-workspace-sh)。
+生成出来的 `<workspace-name>/CLAUDE.md` 是给 AI 读的约定说明。
 
 ## 仓库结构 == 生成物结构
 
-本仓库根目录下除 `README.md`/`init-workspace.sh` 之外的每一样东西，都会被
-`init-workspace.sh` 原样复制到生成出来的工作空间根目录：
+`init-workspace.sh` 只把本仓库的 `CLAUDE.md` 与 `.claude/` 原样复制到生成出来的工作空间根目录；
+`README.md`、`init-workspace.sh`、`LICENSE` / `NOTICE` 与 git 配置文件留在本仓库：
 
 ```
 workspace/                  （本仓库）          <workspace-name>/         （生成物）

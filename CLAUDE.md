@@ -41,18 +41,19 @@
 public class OrderEntity extends BaseEntity { ... }
 public interface OrderMapper extends BaseMapper<OrderEntity> { }
 public class OrderService extends BaseService<OrderMapper, OrderEntity> { ... }
-public class OrderController extends BaseController<OrderService, OrderEntity> { ... }
+public class OrderController extends BaseController<OrderService, OrderMapper, OrderEntity> { ... }
 ```
 
-`BaseController` 自带 list/add/edit/remove 四个通用端点，权限点按
-`<RequestMapping 前缀推导>:<对象>:<动作>` 自动生成——命名规则见下一节，推导错了的
-症状是"连管理员账号都 403"，且报错完全不指向这个原因。
+`BaseController` 自带列表 / 详情 / 新增 / 编辑 / 删除五个通用端点，按 `<权限点前缀>:<动作>` 自动校验权限。
+前缀由 `permPrefix()` 决定，默认从 `@RequestMapping` 推导（`/api/order` → `order`）；codegen 生成的
+Controller 已显式覆写。前缀与菜单 changelog 里登记的 `perm_code` 对不上的症状是"连管理员账号都 403"，
+且报错完全不指向这个原因。
 
 ## 3. 命名约定（跟你相关的部分）
 
 | 场景 | 规则 | 示例 |
 |---|---|---|
-| 权限点 | `<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove` 四个 | `order:item:edit` |
+| 权限点 | 推荐 `<模块>:<对象>:<动作>`，通用动作是 `list`/`add`/`edit`/`remove`。codegen 默认两段式 `<module>:<动作>`，spec 写 `permPrefix` 即三段式。一个项目里选一种保持一致 | `sales:order:edit`（三段式）、`order:edit`（两段式） |
 | 前端 `data-testid` | `<模块>-<对象>-<动作>`，所有关键交互元素都要带，没带视为该功能"未完成" | `order-add-btn` |
 
 `data-testid` 不是装饰性约定——`acceptance-test` skill（见第 4 节）靠它定位页面元素，

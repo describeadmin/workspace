@@ -61,7 +61,7 @@ description: Run a describeadmin feature end to end in an isolated dual git-work
 - **验收清单**：逐条「能观察到什么现象就算这次做对了」（自然语言）——A8 原样交给 `acceptance-test` 当验收标准
 - **受影响面**：后端模块 / 前端页面 / 要不要写 `codegen-specs/<模块>.yaml`
 - **数据库改动**：列出新增 / 改动的表、字段、索引。数据库变更写成 `db/changelog/app/<yyyyMMddHHmm>__<描述>.sql`（codegen 自动产出建表 + 菜单），重启由框架迁移层执行，不需要登记；已执行过的建表 changeset 不能改，加列 / 改列另起文件写 ALTER。SQL 语法按项目自己的数据库版本写，框架不做限制
-- **权限点**：`<模块>:<对象>:<动作>`，动作只有 `list`/`add`/`edit`/`remove`；新模块的菜单 changeset 里同时登记并授权（codegen 已生成；挂哪个目录用 spec 的 `menu.parent`）
+- **权限点**：沿用项目已有的命名方式（两段式 `<module>:<动作>` 或三段式 `<模块>:<对象>:<动作>`，后者在 spec 里写 `permPrefix`），通用动作是 `list`/`add`/`edit`/`remove`；新模块的菜单 changeset 里同时登记并授权（codegen 已生成；挂哪个目录用 spec 的 `menu.parent`，与权限点无关）
 - **`data-testid` 清单**：每个关键交互元素一条，格式 `<模块>-<对象>-<动作>`
 - **测试方案**：后端要新增哪些 `*Test.java`；前端 typecheck/build；**要不要可视化验证**（写明结论 + 理由，判据见 `acceptance-test` 的 SKILL.md）、测哪条流程
 - **base 分支**：`describe.sh new` 输出里两个子仓分别从哪个分支切的，抄进来
