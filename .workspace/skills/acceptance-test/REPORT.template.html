@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>功能名称 · 验收报告</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font: 16px/1.65 system-ui, "Microsoft YaHei", sans-serif;
+      color: #182433;
+      background: #f3f6fa;
+    }
+    body { margin: 0; }
+    main { max-width: 64rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+    header, section {
+      padding: clamp(1rem, 3vw, 2rem);
+      margin-bottom: 1rem;
+      border: 1px solid #d9e2ec;
+      border-radius: .75rem;
+      background: #fff;
+      overflow-wrap: anywhere;
+    }
+    h1, h2 { margin-top: 0; line-height: 1.35; }
+    a { color: #174a91; text-underline-offset: .18em; }
+    nav ul { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; padding: 0; list-style: none; }
+    pre { padding: .75rem; background: #f3f6fa; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: .5rem .75rem; border-bottom: 1px solid #d9e2ec; vertical-align: top; }
+    th { background: #f3f6fa; }
+    figure { margin: .75rem 0 1.5rem; }
+    figure a { display: inline-block; }
+    figure img { display: block; max-width: min(100%, 32rem); height: auto; border: 1px solid #d9e2ec; }
+    figure a:hover img { border-color: #174a91; }
+    figcaption { margin-top: .35rem; }
+    dialog {
+      box-sizing: border-box;
+      max-width: calc(100vw - 2rem);
+      max-height: calc(100vh - 2rem);
+      padding: 1rem;
+      border: 1px solid #d9e2ec;
+      border-radius: .75rem;
+      background: #fff;
+      color: inherit;
+    }
+    dialog::backdrop { background: rgb(16 27 42 / 78%); }
+    .viewer-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: .75rem; }
+    .viewer-controls strong { margin-right: auto; }
+    button { font: inherit; cursor: pointer; }
+    #viewer-image { display: block; max-width: 100%; max-height: 75vh; margin: auto; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>功能名称 · 验收报告</h1>
+      <p><strong>总体结论</strong> 通过、部分通过或失败，附一句依据。</p>
+      <p>验收目标 · slug · YYYY-MM-DD</p>
+      <nav aria-label="报告目录">
+        <ul>
+          <li><a href="#scope">开发内容</a></li>
+          <li><a href="#changes">改动清单</a></li>
+          <li><a href="#checks">测试过程</a></li>
+          <li><a href="#conclusion">结论</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <section id="scope">
+      <h2>开发内容</h2>
+      <p>说明目标和背景。</p>
+      <h3>验收标准</h3>
+      <ul><li>列出每项可观察的预期行为。</li></ul>
+    </section>
+
+    <section id="changes">
+      <h2>改动清单</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">范围</th><th scope="col">文件或对象</th><th scope="col">改动与原因</th></tr></thead>
+          <tbody><tr><td>后端或前端</td><td>文件路径</td><td>说明改动</td></tr></tbody>
+        </table>
+      </div>
+      <!-- 按需补充数据库表、字段、索引、新 Liquibase changeset 及执行情况，以及权限点和菜单。由 describe 调用时补充两个子仓的提交哈希。 -->
+    </section>
+
+    <section id="checks">
+      <h2>测试过程</h2>
+      <h3>后端测试</h3>
+      <pre><code>mvn -q test
+Tests run: X, Failures: 0, Errors: 0, Skipped: 0</code></pre>
+      <h3>前端检查</h3>
+      <ul><li>填写 typecheck 和 build 的结果，或记录跳过原因。</li></ul>
+      <h3>可视化验证</h3>
+      <!-- 跳过或未执行时，改为对应状态和原因，移除步骤、截图、断言示例和日志链接。 -->
+      <p>前端地址 · DB schema · 验收账号</p>
+      <ol>
+        <li>
+          <p>描述操作和观察结果。</p>
+          <figure>
+            <a href="./images/step-01-login.png" class="screenshot" target="_blank" rel="noopener">
+              <img src="./images/step-01-login.png" alt="登录后进入系统首页（点击放大）">
+            </a>
+            <figcaption>登录后进入系统首页。点击截图放大。</figcaption>
+          </figure>
+        </li>
+      </ol>
+      <h3>断言</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">项目</th><th scope="col">类型</th><th scope="col">期望</th><th scope="col">实际</th><th scope="col">结果</th></tr></thead>
+          <tbody>
+            <tr><td>列表数据</td><td>UI</td><td>显示指定记录</td><td>填写观察值</td><td>填写结果</td></tr>
+            <tr><td>数据库记录</td><td>DB</td><td>填写期望字段值</td><td>填写查询结果</td><td>填写结果</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- 失败时链接实际采集到的 console.txt、network.txt 和现场截图。 -->
+    </section>
+
+    <section id="conclusion">
+      <h2>结论</h2>
+      <ul><li>逐条记录验收标准的达成情况，列出未通过项及证据。</li></ul>
+    </section>
+  </main>
+
+  <dialog id="screenshot-viewer" aria-labelledby="viewer-title">
+    <div class="viewer-controls">
+      <strong id="viewer-title">截图预览</strong>
+      <a id="viewer-original" target="_blank" rel="noopener">打开原图</a>
+      <form method="dialog"><button type="submit" autofocus>关闭</button></form>
+    </div>
+    <img id="viewer-image" alt="">
+  </dialog>
+  <script>
+    const viewer = document.getElementById('screenshot-viewer');
+    const fullImage = document.getElementById('viewer-image');
+    const originalLink = document.getElementById('viewer-original');
+
+    for (const link of document.querySelectorAll('a.screenshot')) {
+      link.addEventListener('click', (event) => {
+        if (typeof viewer.showModal !== 'function' || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+        const thumbnail = link.querySelector('img');
+        fullImage.src = link.href;
+        fullImage.alt = thumbnail.alt;
+        originalLink.href = link.href;
+        viewer.showModal();
+        event.preventDefault();
+      });
+    }
+  </script>
+</body>
+</html>

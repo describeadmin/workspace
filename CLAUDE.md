@@ -1,153 +1,18 @@
-# describeadmin 业务方约定
+# describeadmin 工作空间 · Claude Code
 
-> 本文件由 `init-workspace.sh` 生成到你的工作空间根目录。它写的是**你作为
-> describeadmin 框架使用方**需要知道的约定——不是框架团队自己的开发规范
-> （那份更长，讲插件作者规范、发布治理、SemVer，与你无关，你不会看到它）。
+从工作空间根目录开始。先读[共用业务约定](.workspace/CONVENTIONS.md)。
+后端和前端是两个独立的 Git 仓库，目录名取自
+`.workspace/workspace.env` 的 `BACKEND_DIR` 和 `FRONTEND_DIR`。
 
----
+按任务使用 `.claude/skills/` 中的技能，也可以直接读取对应的 `SKILL.md`。
 
-## 0. 你的工作空间长什么样
+| 任务 | 技能 |
+|---|---|
+| 隔离开发、验收、合并或清理需求 worktree | [describe](.claude/skills/describe/SKILL.md) |
+| 启动、查看或停止本地开发环境 | [dev-env](.claude/skills/dev-env/SKILL.md) |
+| 执行验收并生成报告 | [acceptance-test](.claude/skills/acceptance-test/SKILL.md) |
+| 从 YAML spec 生成业务模块 | [codegen](.claude/skills/codegen/SKILL.md) |
+| 联动前后端仓库的分支操作 | [git-sync](.claude/skills/git-sync/SKILL.md) |
 
-```
-<workspace>/
-├── CLAUDE.md              本文件
-├── .claude/
-│   ├── workspace.env       记录你的后端/前端目录名（dev-env skill 用它）
-│   └── skills/              五个可用的 Claude Code skill，见第 4 节
-├── <name>-server/           后端，Maven 项目，由 describeadmin-archetype 生成
-├── <name>-web/               前端，由 @describeadmin/create-app 生成
-└── reports/                 验收报告（acceptance-test skill 产出，用到时才出现）
-```
-
-前四样东西是同一次 `init-workspace.sh` 一起生成的。工作空间根目录本身**不是 git 仓库**——
-你的两个项目 `<name>-server`/`<name>-web` 各自是独立仓库（`init-workspace.sh` 已经
-`git init` + 首次提交好了），正常提交推送即可；
-`.claude/` 与本文件不受版本控制，换一台机器需要重新跑一次 `init-workspace.sh`
-（或者你也可以自己把这两样东西加进某个仓库，按你的习惯来）。
-
-## 1. 你在哪一层
-
-你是**Business 层**：只通过 Maven（`<name>-server/pom.xml` 的 `import framework-bom`）
-和 npm（`<name>-web/package.json` 的 `@describeadmin/*` 依赖）引用框架，
-不需要、也不应该把框架源码拷贝进你的仓库——框架的 bug 修复、新功能都通过升级依赖版本号
-拿到，拷贝源码会让你拿不到后续更新。
-
-## 2. 后端：继承框架基类，写"薄"代码
-
-新增一个业务模块，四个类都继承框架基类，通用逻辑（审计字段、分页、逻辑删除、
-统一响应结构、令牌校验）已经在基类里，不用重复写：
-
-```java
-public class OrderEntity extends BaseEntity { ... }
-public interface OrderMapper extends BaseMapper<OrderEntity> { }
-public class OrderService extends BaseService<OrderMapper, OrderEntity> { ... }
-public class OrderController extends BaseController<OrderService, OrderMapper, OrderEntity> { ... }
-```
-
-`BaseController` 自带列表 / 详情 / 新增 / 编辑 / 删除五个通用端点，按 `<权限点前缀>:<动作>` 自动校验权限。
-前缀由 `permPrefix()` 决定，默认从 `@RequestMapping` 推导（`/api/order` → `order`）；codegen 生成的
-Controller 已显式覆写。前缀与菜单 changelog 里登记的 `perm_code` 对不上的症状是"连管理员账号都 403"，
-且报错完全不指向这个原因。
-
-## 3. 命名约定（跟你相关的部分）
-
-| 场景 | 规则 | 示例 |
-|---|---|---|
-| 权限点 | 推荐 `<模块>:<对象>:<动作>`，通用动作是 `list`/`add`/`edit`/`remove`。codegen 默认两段式 `<module>:<动作>`，spec 写 `permPrefix` 即三段式。一个项目里选一种保持一致 | `sales:order:edit`（三段式）、`order:edit`（两段式） |
-| 前端 `data-testid` | `<模块>-<对象>-<动作>`，所有关键交互元素都要带，没带视为该功能"未完成" | `order-add-btn` |
-
-`data-testid` 不是装饰性约定——`acceptance-test` skill（见第 4 节）靠它定位页面元素，
-没打的交互元素 AI 没法自动化测试。
-
-## 4. 五个 Claude Code Skill
-
-`.claude/skills/` 下有五个随工作空间一起生成的 skill，AI Agent 会按需自动调用，
-你也可以直接要求"用 dev-env 起一下环境"这样触发：
-
-- **`dev-env`**：一条命令拉起/查看/停止本地开发环境（后端 + 前端 + 共享 MySQL/Redis），
-  支持多个 `git worktree` 并行开发互不干扰。命令本体在
-  `.claude/skills/dev-env/dev.sh`，`slug`/`dev up`/`dev wait`/`dev status`/`dev down` 几个子命令。
-- **`acceptance-test`**：功能做完后的验收收尾——跑后端测试与前端 typecheck/build，
-  改动有可观察的界面行为时 AI 自动打开浏览器走一遍页面操作 + 核对数据库，
-  不是只看"页面看起来正常"就下结论。产出一份完整报告 `reports/<name>/REPORT.md`
-  （改动清单、测试输出、过程截图），不落进前后端项目。见 `.claude/skills/acceptance-test/SKILL.md`。
-- **`describe`**：把一个需求跑完整条链路——你给需求描述 + 参考材料（PRD / 参考代码 /
-  图片 / 文档），AI 先建一个隔离的双 `git worktree` 沙箱，出开发计划（含验收清单）给你确认
-  （中途可追问），确认后自主实现、跑完整测试，再交给 `acceptance-test` 出验收报告，最后停在"待合并"。
-  你验证无误说一句"合并 `<slug>`"，它再把两个仓的分支合并回去、把报告留存到 `reports/<slug>/`
-  并清理 worktree。细节见 `.claude/skills/describe/SKILL.md`。
-- **`git-sync`**：前后端两个仓库的分支联动——一起新建 / 切换 / 删除分支、一起提交
-  （提交信息按各仓 diff 分别写）、一起 push / pull，并在两仓当前分支不一致时告警。
-  它只动两个仓库的主工作目录，不碰 worktree（那是 `describe` 的事）。
-  见 `.claude/skills/git-sync/SKILL.md`。
-- **`codegen`**：写一份 YAML spec，生成一个业务模块的薄代码（后端四件套 + 建表/菜单 SQL +
-  前端页面 + API 封装）。它管生成器 jar 从 GitHub Release 的下载与缓存
-  （`~/.describeadmin/codegen/<版本>/`，版本跟你后端 `pom.xml` 的 `<describeadmin.version>`
-  一致）、spec 校验要点、菜单挂哪个目录（`menu.parent`），以及生成后数据库 changelog 的规矩。
-  见 `.claude/skills/codegen/SKILL.md`。新增模块走它，不要手写——见第 6 节。
-
-## 5. 你作为 API 消费者需要知道的一个坑
-
-`Long`/`long` 类型的字段（包括所有实体的主键 `id`）在 JSON 里序列化成**字符串**，
-不是数字。原因：如果你把 `mybatis-plus.global-config.db-config.id-type` 切到雪花 ID，
-19 位数字超过 JS 的 `Number.MAX_SAFE_INTEGER`（16 位），前端 `JSON.parse` 会静默舍入——
-**症状是列表显示正常，点编辑/删除却报"记录不存在"或者改错行**，非常隐蔽。
-
-分页元信息（`total`/`current`/`size`/`pages`）是唯一例外，仍然是数字——`el-pagination`
-的 `:total` 要求数字。你自己新增的 `Long` 字段如果不想转字符串，加
-`@JsonFormat(shape = JsonFormat.Shape.NUMBER)`。
-
-## 5.1 填下拉框：用 `/options`，不要拿分页接口凑
-
-表单里要「选一个部门」「选一个角色」「选一个项目」时，**不要调对方的分页列表接口**，
-更不要写 `?current=1&size=200` 这种"假装不分页"：
-
-- 数据超过那个 size 就**静默丢**，症状是下拉里找不到某一项，看不出是接口截断了；
-- **调大参数也修不好**——后端 `PageQuery` 的 size 上限就是 500；
-- 而且你会因此需要对方模块的 `xxx:list` 权限，一授，侧边栏就多出你不想要的管理入口。
-
-正确做法是调对应的选项接口，它们不分页、超限会明确报错而不是悄悄截断：
-
-| 要什么 | 调什么 | 需要什么权限 |
-|---|---|---|
-| 部门树 | `getDeptOptionsApi()` | 登录即可 |
-| 角色清单 | `getRoleOptionsApi(keyword?)` | 登录即可 |
-| 菜单树 | `getMenuOptionsApi()` | 登录即可 |
-| 字典项 | `getDictDataByTypeApi(dictType)` | 登录即可 |
-| **你自己的业务模块** | 生成器产出的 `getXxxOptionsApi(keyword?)` | 该模块的 `xxx:list` |
-
-返回的是统一的 `OptionItem`（`value` / `label`，树形多一个 `children`）：
-
-- **`value` 是字符串**（同第 5 节的理由）。绑 `node-key="value"`，自己合成的顶层节点
-  要写 `'0'` 而不是 `0`，否则 ElTreeSelect 严格相等匹配不上，表现为"选了没反应"。
-- 停用项带 `disabled: true`，**仍然会下发**——不下发的话，已经关联了该项的记录
-  一打开编辑表单就显示为空，看起来像"这条数据没填"，保存一次就真没了。
-
-业务模块的选项接口**照常走数据权限**：「本部门」档的角色在下拉里只看得到本部门的数据，
-与列表页一致。
-
-## 6. 新增业务模块：用生成器，不要手写
-
-写一份 YAML spec，跑生成器，一次拿到后端四件套（Entity/Mapper/Service/Controller）+
-建表 SQL + 菜单 SQL + 前端页面 + API 封装。**用 `codegen` skill**（第 4 节）——它管
-生成器 jar 的下载缓存、spec 校验要点、changelog 的规矩与两个隐坑
-（下划线模块名导致的权限点 403、别自写 `list` 重载）。spec 格式见框架文档站的生成器一节。
-
-数据库变更（建表、加列、菜单、字典）一律是 `<name>-server/src/main/resources/db/changelog/app/`
-下的 Liquibase changelog，文件名 `<yyyyMMddHHmm>__<描述>.sql`，**放进去重启即执行，不需要登记**：
-
-- 已执行过的 DDL changeset **不能再改**（校验和不符，所有已建库的环境都会拒绝启动），
-  加列 / 改列新建文件写 ALTER；每个文件首行必须是
-  `--liquibase formatted sql logicalFilePath:app/<文件名>`，否则启动即报错。
-- 启动时做什么由 `describeadmin.migration.mode` 决定：`application-local.yml` 是 `apply`（自动执行）；
-  生产不写，默认 `validate`——有未执行的变更就拒绝启动。生产要么用
-  `--describeadmin.migration.mode=print-sql` 生成 SQL 交给 DBA，要么显式 `apply` 启动一次。
-
-## 7. 不在本文件里的内容
-
-以下是框架团队自己的事，你不需要知道，也不会在这个工作空间里看到对应文件：
-
-- 框架自己怎么构建、发布到 Maven Central/npm 的流程
-- 新增登录方式/消息通道这类 SPI 插件的作者规范
-- 框架内部的 SemVer 兼容性承诺范围、CHANGELOG 规范
-- 框架自己验证 MySQL 5.7/8.4 兼容性用的测试基础设施
+从工作空间根目录运行技能命令，例如 `.claude/skills/dev-env/dev.sh dev status`。
+Claude Code 的工具和权限使用自己的客户端配置。项目约定、脚本、配置和运行状态在 `.workspace/`。

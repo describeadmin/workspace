@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
 # 一条命令初始化一个 describeadmin 业务方工作空间：后端工程 + 前端工程 +
-# AI 工作目录（.claude/skills、CLAUDE.md）。
+# Claude Code 与 Agents 的工作目录。
 #
 # 用法（首选，不需要先本地 clone 任何仓库）：
 #   curl -fsSL https://raw.githubusercontent.com/describeadmin/workspace/main/init-workspace.sh \
 #     | bash -s -- <workspace-name>
 #
-# 已经本地 clone 了这个仓库的话，也可以直接跑（脚本会自己判断，见「拉取 AI 工作目录」一节）：
+# 已经本地 clone 了这个仓库的话，也可以直接使用本地模板：
 #   ./init-workspace.sh <workspace-name>
 #
 # 可选参数：
@@ -17,10 +17,11 @@
 #
 # 产出（工作区目录本身不是 git 仓库，是容纳两个独立仓库的容器目录）：
 #   <workspace-name>/
-#   ├── CLAUDE.md                业务方视角的约定说明
-#   ├── .claude/
-#   │   ├── workspace.env         dev-env skill 读取的目录名/项目名配置
-#   │   └── skills/                dev-env、acceptance-test、describe、codegen、git-sync 五个 Claude Code skill
+#   ├── CLAUDE.md                  Claude Code 入口
+#   ├── .claude/skills/            Claude Code 技能入口
+#   ├── AGENTS.md                  Agents 入口
+#   ├── .agent/skills/             Agents 技能入口
+#   ├── .workspace/              公共约定、技能实现和 workspace.env
 #   ├── <workspace-name>-server/   后端，describeadmin-archetype 生成 + git init
 #   └── <workspace-name>-web/       前端，@describeadmin/create-app 生成 + git init
 #
@@ -32,7 +33,13 @@ ARCHETYPE_VERSION=""
 PROXY_TARGET="http://localhost:8090"
 NAME=""
 
-usage() { sed -n '2,25p' "$0"; }
+usage() {
+  if [[ -f "${BASH_SOURCE[0]:-}" ]]; then
+    sed -n '2,/^set -euo pipefail$/{ /^set -euo pipefail$/d; p; }' "${BASH_SOURCE[0]}"
+  else
+    echo "用法：init-workspace.sh <workspace-name> [--group-id <groupId>] [--archetype-version <version>] [--proxy-target <url>]"
+  fi
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -67,6 +74,26 @@ if [[ -e "$NAME" ]]; then
   exit 1
 fi
 
+# 先解析模板来源。相对路径执行本地脚本时，进入生成目录后原路径将不可用。
+SHARED_ITEMS=(CONVENTIONS.md skills)
+SCRIPT_SRC=""
+if [[ -f "${BASH_SOURCE[0]:-}" ]]; then
+  SCRIPT_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+if [[ -z "$SCRIPT_SRC" || ! -d "$SCRIPT_SRC/.workspace" ]]; then
+  echo "▸ 拉取 describeadmin/workspace 仓库模板 ..."
+  TMP_DIR="$(mktemp -d)"
+  trap 'rm -rf "$TMP_DIR"' EXIT
+  git clone --depth 1 --quiet "$WORKSPACE_REPO_URL" "$TMP_DIR"
+  SCRIPT_SRC="$TMP_DIR"
+fi
+if [[ ! -f "$SCRIPT_SRC/CLAUDE.md" || ! -d "$SCRIPT_SRC/.claude/skills" ||
+      ! -f "$SCRIPT_SRC/AGENTS.md" || ! -d "$SCRIPT_SRC/.agent/skills" ||
+      ! -f "$SCRIPT_SRC/.workspace/CONVENTIONS.md" || ! -d "$SCRIPT_SRC/.workspace/skills" ]]; then
+  echo "✗ workspace 模板不完整：$SCRIPT_SRC（请检查共用目录 .workspace/ 和两套 AI 入口）" >&2
+  exit 1
+fi
+
 mkdir -p "$NAME"
 cd "$NAME"
 
@@ -98,7 +125,7 @@ echo "▸ 生成前端工程 $FRONTEND_DIR ..."
 npm create @describeadmin/app@latest -- "$FRONTEND_DIR" >/dev/null
 
 # --- 4. git 初始化两个子项目 ---
-# archetype / create-app 都不建仓，但 CLAUDE.md 讲的是「你的两个项目各自是独立仓库」，
+# archetype / create-app 都不建仓，但工作区约定要求两个项目是独立仓库，
 # 且 describe / dev-env 的 git worktree 能力都以此为前提。这里补上：各自 init + 首次提交。
 for proj in "$BACKEND_DIR" "$FRONTEND_DIR"; do
   if [[ -d "$proj/.git" ]]; then
@@ -116,33 +143,31 @@ for proj in "$BACKEND_DIR" "$FRONTEND_DIR"; do
   fi
 done
 
-# --- 5. 拉取 AI 工作目录（.claude/ + CLAUDE.md） ---
-# 本地已 clone 本仓库、直接运行脚本的场景：脚本旁边就有这两样东西，直接复制。
-# curl | bash 管道执行的场景：$0 不是磁盘上的真实文件，没有本地文件可用，
-# 走 git clone 到临时目录再复制。
-SCRIPT_SRC=""
-if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
-  CANDIDATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -d "$CANDIDATE_DIR/.claude" && -f "$CANDIDATE_DIR/CLAUDE.md" ]]; then
-    SCRIPT_SRC="$CANDIDATE_DIR"
-  fi
-fi
-
-if [[ -n "$SCRIPT_SRC" ]]; then
-  echo "▸ 从本地 workspace 仓库复制 .claude/ + CLAUDE.md ..."
-  cp -r "$SCRIPT_SRC/.claude" .
-  cp "$SCRIPT_SRC/CLAUDE.md" .
-else
-  echo "▸ 拉取 describeadmin/workspace 仓库内容（.claude/ + CLAUDE.md）..."
-  TMP_DIR="$(mktemp -d)"
-  trap 'rm -rf "$TMP_DIR"' EXIT
-  git clone --depth 1 --quiet "$WORKSPACE_REPO_URL" "$TMP_DIR"
-  cp -r "$TMP_DIR/.claude" .
-  cp "$TMP_DIR/CLAUDE.md" .
-fi
+# --- 5. 安装公共文件和两套 AI 入口 ---
+echo "▸ 安装公共文件、Claude Code 与 Agents 入口 ..."
+mkdir -p .workspace
+for item in "${SHARED_ITEMS[@]}"; do
+  cp -r "$SCRIPT_SRC/.workspace/$item" .workspace/
+done
+cp "$SCRIPT_SRC/"{CLAUDE.md,AGENTS.md} .
+for client_dir in .claude .agent; do
+  # 本地检出可能含旧版 workspace.env、运行状态或个人配置。
+  # 初始化只分发客户端的技能声明与命令入口。
+  for manifest in "$SCRIPT_SRC/$client_dir/skills/"*/SKILL.md; do
+    skill_dir="$(dirname "$manifest")"
+    target="$client_dir/skills/${skill_dir##*/}"
+    mkdir -p "$target"
+    cp "$manifest" "$target/"
+    for launcher in "$skill_dir/"*.sh; do
+      if [[ -f "$launcher" ]]; then
+        cp "$launcher" "$target/"
+      fi
+    done
+  done
+done
 
 # --- 6. 写 workspace.env，dev-env skill 靠它知道目录名/项目名 ---
-cat > .claude/workspace.env <<EOF
+cat > .workspace/workspace.env <<EOF
 BACKEND_DIR=$BACKEND_DIR
 FRONTEND_DIR=$FRONTEND_DIR
 PROJECT_NAME=$NAME
@@ -165,12 +190,12 @@ echo
 echo "✔ 工作空间 $NAME 已就绪"
 echo
 echo "接下来："
-echo "  1. 起数据库：cd $NAME && .claude/skills/dev-env/dev.sh dev up"
+echo "  1. 起数据库：cd $NAME && .workspace/skills/dev-env/dev.sh dev up"
 echo "     （首次运行会自动建共享 MySQL/Redis 容器 + 后台起后端/前端）"
 echo "  2. 或者手工分别起：cd $BACKEND_DIR && mvn spring-boot:run -Dspring-boot.run.profiles=local"
 echo "               cd $FRONTEND_DIR && pnpm install && pnpm dev"
 echo "  3. 管理员账号 admin，口令随机生成——见后端启动日志或 $BACKEND_DIR/.passwd"
 echo
 echo "两个子项目已各自 git init + 首次提交（describe skill 的 worktree 能力以此为前提）。"
-echo "把 $NAME 打开交给 AI Agent（读 CLAUDE.md 即可开工）：直接描述需求走 describe skill 全流程，"
-echo "或用 codegen 生成业务模块、dev-env / acceptance-test 单独起环境跑验收、git-sync 联动两仓分支——细节见 .claude/skills/*/SKILL.md。"
+echo "在 $NAME 根目录启动 AI：Claude Code 使用 CLAUDE.md，Agents 使用 AGENTS.md。"
+echo "两套入口都提供 describe、codegen、dev-env、acceptance-test 和 git-sync。"
