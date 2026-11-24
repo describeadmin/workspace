@@ -1,5 +1,7 @@
 # describeadmin/workspace
 
+![Describe Admin](./assets/logo-text.svg)
+
 业务方的工作空间初始化器：一条命令生成后端工程 + 前端工程 + AI 工作目录
 （`CLAUDE.md` + `.claude/skills/`）。这是**业务方唯一需要接触的"元信息"仓库**——
 框架团队自己的元仓库是 `describeadmin/docs`，两者受众不同，不要混。
